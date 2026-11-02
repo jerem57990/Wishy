@@ -68,6 +68,20 @@ Touche une puce Pantone pour copier sa référence. Les teintes affichées sont 
 
 Tout reste sur ton PC, dans `%APPDATA%\Wishy\wishy-data.json`. Réglages → Sauvegarde pour exporter ou restaurer.
 
+## Version iPhone
+
+Wishy existe aussi en **web app** pour iPhone : **https://jerem57990.github.io/Wishy/**
+
+1. Ouvre ce lien dans **Safari**, puis **Partager → Sur l'écran d'accueil**.
+2. Lance Wishy depuis son icône et crée ton compte (ou connecte-toi).
+3. Sur le PC : **Réglages → Synchronisation avec l'iPhone**, connecte-toi avec le même compte. Tes articles, achats et budget sont partagés.
+4. Dans Wishy sur l'iPhone : **Réglages → Notifications de promo → Activer**.
+5. Pour ajouter un article depuis le bouton Partager : [crée le Raccourci « Ajouter à Wishy »](docs/raccourci-ios.md).
+
+Les prix sont vérifiés dans le cloud toutes les 3 heures (fonction Supabase `check-prices`), même quand ton PC est éteint ; une baisse déclenche une notification sur l'iPhone. Les photos de la cabine d'essayage restent sur chaque appareil.
+
+Architecture : Supabase (base Postgres avec RLS, Auth, fonctions Edge dans `supabase/`, pg_cron) ; web app construite par `scripts/build-pwa.mjs` et publiée sur GitHub Pages par `.github/workflows/pages.yml`.
+
 ## Mises à jour automatiques
 
 La version installée (Wishy-Setup) vérifie les nouvelles versions sur les Releases GitHub au démarrage, puis toutes les 4 heures. Une nouvelle version se télécharge en arrière-plan ; un bandeau propose alors **Redémarrer et installer** (sinon elle s'installe à la prochaine fermeture de Wishy). La version portable ne se met pas à jour toute seule.
