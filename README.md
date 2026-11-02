@@ -76,14 +76,17 @@ Le dépôt doit être **public** pour que Wishy puisse lire les Releases sans cl
 
 ### Publier une nouvelle version
 
-1. Augmente `version` dans `package.json` (ex. `1.4.0` → `1.5.0`).
-2. Crée un jeton GitHub (Settings → Developer settings → Fine-grained tokens) avec l'accès **Contents : Read and write** sur ce dépôt.
-3. Dans le terminal de VS Code :
+Une GitHub Action (`.github/workflows/release.yml`) compile Wishy sur Windows et publie la Release toute seule.
+
+1. Augmente `version` dans `package.json` (ex. `1.4.0` → `1.5.0`) et pousse tes changements.
+2. Crée le tag correspondant et pousse-le :
    ```
-   $env:GH_TOKEN="ton_jeton"
-   npm run release
+   git tag v1.5.0
+   git push origin v1.5.0
    ```
-   Les .exe, `latest.yml` et le `.blockmap` sont envoyés dans une nouvelle Release GitHub ; tous les Wishy installés la récupèrent.
+3. Après environ 10 minutes, la Release apparaît dans l'onglet Releases ; tous les Wishy installés la récupèrent.
+
+Tu peux suivre la compilation dans l'onglet **Actions** du dépôt.
 
 ## Pour les développeurs
 

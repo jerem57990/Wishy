@@ -1,0 +1,36 @@
+# Compile Wishy sur Windows et publie une Release GitHub (avec latest.yml pour les mises à jour automatiques)
+# Déclenchement : pousser un tag "vX.Y.Z" correspondant à la version de package.json.
+name: Release Windows
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Vérifier que le tag correspond à package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          V=$(node -p "require('./package.json').version")
+          if [ "v$V" != "${GITHUB_REF_NAME}" ]; then echo "Tag ${GITHUB_REF_NAME} ≠ version v$V dans package.json"; exit 1; fi
+
+      - run: npm ci
+
+      - name: Compiler et publier la Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish always
