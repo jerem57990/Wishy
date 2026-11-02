@@ -1,7 +1,7 @@
 {
   "name": "wishy",
   "productName": "Wishy",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Widget wishlist avec suivi des prix et dashboard des dépenses",
   "main": "main.js",
   "author": "Jérémy",

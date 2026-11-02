@@ -29,6 +29,8 @@
 }
 
 * { box-sizing: border-box; }
+/* un élément masqué reste masqué, même s'il a un display défini plus bas */
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; background: transparent; }
 body { font: 15px/1.5 var(--font-body); color: var(--ink); -webkit-font-smoothing: antialiased; overflow: hidden; }
 button, input, select { font: inherit; color: inherit; }

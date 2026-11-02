@@ -242,7 +242,12 @@ function registerIpc() {
     try { await autoUpdater.checkForUpdates(); } catch (e) { sendUpdate({ status: 'error', error: String(e?.message || e).slice(0, 200) }); }
     return updateState;
   });
-  ipcMain.handle('update:install', () => { quitting = true; autoUpdater.quitAndInstall(false, true); });
+  ipcMain.handle('update:install', () => {
+    if (updateState.status !== 'ready') return { ok: false };
+    quitting = true;
+    autoUpdater.quitAndInstall(false, true);
+    return { ok: true };
+  });
   ipcMain.handle('item:add', (_, url, extra) => addItem(url, extra));
   ipcMain.handle('item:update', (_, id, patch) => {
     const it = db.items.find((i) => i.id === id);
