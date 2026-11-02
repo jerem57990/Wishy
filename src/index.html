@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self' data: blob:" />
+  <title>Wishy</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="shell" id="shell">
+    <!-- Barre de titre / ajout rapide -->
+    <header class="titlebar">
+      <div class="brand">
+        <img src="../assets/icon.png" alt="" class="brand-icon" />
+        <span>Wishy</span>
+      </div>
+      <form class="quick-add" id="quickAdd" autocomplete="off">
+        <svg viewBox="0 0 24 24" class="qa-ico" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" /></svg>
+        <input id="quickUrl" type="text" placeholder="Colle le lien d'un article (Zalando, Amazon, Fnac, Steam…)" aria-label="Lien de l'article" />
+        <button type="button" class="btn-ghost small" id="pasteBtn" title="Coller depuis le presse-papiers">Coller</button>
+        <button type="submit" class="btn-sun" id="addBtn">Ajouter</button>
+      </form>
+      <div class="win-ctrls">
+        <button class="wc" id="pinBtn" title="Garder au premier plan" aria-label="Garder au premier plan"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 17h14l-2-4V5h1V3H6v2h1v8z" /></svg></button>
+        <button class="wc" id="minBtn" aria-label="Réduire"><svg viewBox="0 0 24 24"><path d="M5 12h14" /></svg></button>
+        <button class="wc" id="maxBtn" aria-label="Agrandir"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" /></svg></button>
+        <button class="wc close" id="closeBtn" aria-label="Masquer dans la barre des tâches"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+      </div>
+    </header>
+
+    <div class="body">
+      <nav class="rail" aria-label="Navigation">
+        <button class="nav active" data-view="wishlist"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg><span>Wishlist</span></button>
+        <button class="nav" data-view="promos"><svg viewBox="0 0 24 24"><path d="M20 12l-8 8-9-9V3h8z" /><circle cx="7.5" cy="7.5" r="1.5" /></svg><span>Promos</span><b class="nav-badge" id="promoBadge" hidden>0</b></button>
+        <button class="nav" data-view="depenses"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg><span>Dépenses</span></button>
+        <button class="nav" data-view="cabine"><svg viewBox="0 0 24 24"><path d="M9 3l-5 3 2 4 2-1v12h8V9l2 1 2-4-5-3a3 3 0 0 1-6 0z" /></svg><span>Cabine</span><i class="beta">IA</i></button>
+        <div class="rail-spacer"></div>
+        <button class="nav" data-view="reglages"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg><span>Réglages</span></button>
+      </nav>
+
+      <main class="main" id="main">
+        <div class="update-bar" id="updateBar" hidden>
+          <span id="updateText"></span>
+          <button class="btn-ink small" id="updateBtn">Redémarrer et installer</button>
+        </div>
+        <!-- WISHLIST -->
+        <section class="view active" id="view-wishlist">
+          <div class="hero">
+            <div class="hero-text">
+              <p class="hero-kicker">Ta wishlist vaut</p>
+              <h1 class="hero-amount" id="heroTotal">0 €</h1>
+              <div class="hero-stats">
+                <div><strong id="heroCount">0</strong><span>articles suivis</span></div>
+                <div><strong id="heroSaved" class="mint">0 €</strong><span>économisés en promo</span></div>
+                <div><strong id="heroMonth">0 €</strong><span>dépensés ce mois-ci</span></div>
+              </div>
+              <button class="btn-ink" id="checkBtn"><span class="spin" aria-hidden="true"></span><span class="lbl">Vérifier les prix</span></button>
+              <p class="hero-note" id="lastCheck"></p>
+            </div>
+            <div class="hero-3d" id="hero3d" aria-hidden="true"></div>
+          </div>
+
+          <div class="toolbar">
+            <div class="chips" id="catChips" role="tablist"></div>
+            <div class="toolbar-right">
+              <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg><input id="search" placeholder="Rechercher" /></label>
+              <select id="sort" aria-label="Trier">
+                <option value="recent">Plus récents</option>
+                <option value="drop">Plus grosse baisse</option>
+                <option value="priceAsc">Prix croissant</option>
+                <option value="priceDesc">Prix décroissant</option>
+                <option value="priority">Priorité</option>
+              </select>
+            </div>
+          </div>
+
+          <ul class="list" id="itemList"></ul>
+          <div class="empty" id="emptyState" hidden>
+            <div class="empty-3d">🛍️</div>
+            <h3>Ta wishlist est vide</h3>
+            <p>Copie le lien d'un article sur n'importe quel site, puis appuie sur <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>W</kbd> — ou colle-le en haut.</p>
+          </div>
+        </section>
+
+        <!-- PROMOS -->
+        <section class="view" id="view-promos">
+          <div class="page-head">
+            <h2>Promos en cours</h2>
+            <p>Les articles dont le prix a baissé depuis que tu les as ajoutés, et ceux qui ont atteint ton prix cible.</p>
+          </div>
+          <ul class="list" id="promoList"></ul>
+          <div class="empty" id="promoEmpty" hidden>
+            <div class="empty-3d">🔔</div>
+            <h3>Aucune baisse pour l'instant</h3>
+            <p>Wishy vérifie les prix toutes les quelques heures tant qu'il tourne dans la barre des tâches. Tu recevras une notification Windows dès qu'un prix baisse.</p>
+          </div>
+        </section>
+
+        <!-- DÉPENSES -->
+        <section class="view" id="view-depenses">
+          <div class="page-head row">
+            <div>
+              <h2>Dépenses</h2>
+              <p>Tout ce que tu as acheté depuis Wishy, mois par mois.</p>
+            </div>
+            <div class="month-nav">
+              <button class="btn-ghost round" id="mPrev" aria-label="Mois précédent">‹</button>
+              <strong id="mLabel">—</strong>
+              <button class="btn-ghost round" id="mNext" aria-label="Mois suivant">›</button>
+            </div>
+          </div>
+
+          <div class="dash">
+            <div class="panel budget">
+              <div class="ring" id="budgetRing"></div>
+              <div>
+                <p class="muted">Dépensé ce mois</p>
+                <p class="big" id="mTotal">0 €</p>
+                <p class="muted" id="mBudgetTxt"></p>
+              </div>
+            </div>
+            <div class="panel kpis">
+              <div><p class="muted">Achats</p><p class="big" id="mCount">0</p></div>
+              <div><p class="muted">Panier moyen</p><p class="big" id="mAvg">0 €</p></div>
+              <div><p class="muted">Économisé</p><p class="big mint" id="mSaved">0 €</p></div>
+            </div>
+            <div class="panel bars3d">
+              <div class="panel-head"><h3>12 derniers mois</h3><span class="muted">Fais tourner le graphique à la souris</span></div>
+              <div id="bars3d" class="canvas-host"></div>
+            </div>
+            <div class="panel cats">
+              <div class="panel-head"><h3>Par catégorie</h3></div>
+              <div id="catBreakdown"></div>
+            </div>
+            <div class="panel purchases">
+              <div class="panel-head"><h3>Achats du mois</h3></div>
+              <ul id="purchaseList" class="plist"></ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- CABINE -->
+        <section class="view" id="view-cabine">
+          <div class="page-head">
+            <h2>Cabine d'essayage</h2>
+            <p>Choisis un haut et un bas de ta wishlist : l'IA les enfile sur ta photo, avec leur vraie coupe et leur vraie matière.</p>
+          </div>
+          <div class="cabine">
+            <div class="stage" id="stage">
+              <!-- 1. Pas encore de photo -->
+              <label class="stage-drop" id="stageDrop">
+                <input type="file" id="photoInput" accept="image/*" hidden />
+                <div class="drop-figure" aria-hidden="true">
+                  <svg viewBox="0 0 120 200"><circle cx="60" cy="28" r="18"/><path d="M60 48c-22 0-34 10-34 30v44h14v70h14v-62h12v62h14v-70h14V78c0-20-12-30-34-30z"/></svg>
+                </div>
+                <strong>Ajoute une photo de toi</strong>
+                <span>En pied, de face, bras le long du corps, sur un fond simple et bien éclairé.</span>
+                <span class="btn-sun">Choisir une photo</span>
+              </label>
+              <!-- 2. Photo / résultat -->
+              <figure class="stage-photo" id="stagePhoto" hidden>
+                <img id="stageImg" alt="" />
+                <img id="stageBefore" alt="" class="before" hidden />
+                <div class="scan" id="scan" hidden><i></i></div>
+                <figcaption class="stage-cap" id="stageCap"></figcaption>
+                <div class="stage-tools">
+                  <button class="chip-btn" id="compareBtn" hidden title="Maintiens pour voir ta photo d'origine">Avant / après</button>
+                  <button class="chip-btn" id="downloadBtn" hidden>Télécharger</button>
+                  <label class="chip-btn">Changer de photo<input type="file" id="photoInput2" accept="image/*" hidden /></label>
+                </div>
+              </figure>
+            </div>
+
+            <div class="cabine-side">
+              <div class="cabine-pick" id="cabinePick"></div>
+              <div class="harmony" id="harmony" hidden></div>
+              <div class="tryon-bar">
+                <div class="tryon-progress" id="tryProgress" hidden><div class="tp-track"><i id="tpBar"></i></div><span id="tpText"></span></div>
+                <button class="btn-ink big-btn" id="tryBtn">Essayer la tenue</button>
+                <p class="fineprint">Ta photo et celles des vêtements sont envoyées au modèle d'IA gratuit Leffa, sur Hugging Face, le temps de l'essayage. Compte 30 s à 1 min par vêtement.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="looks-wrap" id="looksWrap" hidden>
+            <h3>Mes tenues</h3>
+            <ul class="looks" id="looks"></ul>
+          </div>
+        </section>
+
+        <!-- RÉGLAGES -->
+        <section class="view" id="view-reglages">
+          <div class="page-head"><h2>Réglages</h2></div>
+          <div class="settings">
+            <label class="set"><div><strong>Lancer Wishy au démarrage de Windows</strong><span>Il démarre discrètement dans la barre des tâches.</span></div><input type="checkbox" class="switch" id="sAutostart" /></label>
+            <label class="set"><div><strong>Toujours au premier plan</strong><span>Le widget reste visible au-dessus des autres fenêtres.</span></div><input type="checkbox" class="switch" id="sTop" /></label>
+            <label class="set"><div><strong>Notifications de baisse de prix</strong><span>Une notification Windows dès qu'un article baisse.</span></div><input type="checkbox" class="switch" id="sNotify" /></label>
+            <label class="set"><div><strong>Fréquence de vérification</strong><span>Plus souvent = plus de requêtes vers les boutiques.</span></div>
+              <select id="sHours"><option value="1">Toutes les heures</option><option value="3">Toutes les 3 h</option><option value="6">Toutes les 6 h</option><option value="12">Toutes les 12 h</option><option value="24">Une fois par jour</option></select></label>
+            <label class="set"><div><strong>Budget mensuel</strong><span>Sert à la jauge du tableau des dépenses.</span></div><input type="number" id="sBudget" min="0" step="10" class="num" /></label>
+            <label class="set"><div><strong>Jeton Hugging Face (cabine d'essayage)</strong><span>Facultatif mais conseillé : un compte gratuit donne plus d'essayages par jour. Crée un jeton « Read » sur <a href="#" data-ext="https://huggingface.co/settings/tokens">huggingface.co/settings/tokens</a>.</span></div><input type="password" id="sToken" class="num wide" placeholder="hf_…" autocomplete="off" /></label>
+            <div class="set"><div><strong>Raccourcis clavier</strong><span><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>W</kbd> ajoute le lien copié · <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Espace</kbd> affiche ou masque Wishy</span></div></div>
+            <div class="set"><div><strong>Version <span id="appVersion"></span></strong><span id="updateInfo">Wishy se met à jour tout seul depuis GitHub.</span></div><button class="btn-ghost" id="checkUpdateBtn">Rechercher une mise à jour</button></div>
+            <div class="set"><div><strong>Sauvegarde</strong><span>Exporte ou restaure toute ta wishlist et tes achats.</span></div>
+              <div class="set-btns"><button class="btn-ghost" id="exportBtn">Exporter</button><label class="btn-ghost">Importer<input type="file" id="importFile" accept=".json" hidden /></label></div></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Panneau détail -->
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-scrim" data-close></div>
+    <div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+      <button class="wc drawer-x" data-close aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+      <div id="drawerBody"></div>
+    </div>
+  </aside>
+
+  <!-- Boîte de dialogue achat -->
+  <dialog id="buyDlg" class="dlg">
+    <form method="dialog" id="buyForm">
+      <h3>Marquer comme acheté</h3>
+      <p class="muted" id="buyName"></p>
+      <label>Prix payé (€)<input type="number" step="0.01" min="0" id="buyPrice" required /></label>
+      <label>Date d'achat<input type="date" id="buyDate" required /></label>
+      <label>Boutique<input type="text" id="buyStore" /></label>
+      <div class="dlg-btns"><button value="cancel" class="btn-ghost" formnovalidate>Annuler</button><button value="ok" class="btn-sun">Enregistrer l'achat</button></div>
+    </form>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
