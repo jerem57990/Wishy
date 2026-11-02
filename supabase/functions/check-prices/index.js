@@ -59,16 +59,18 @@ Deno.serve(async () => {
       }
       const old = it.price;
       it.history = it.history || [];
-      if (old && info.price < old - 0.009) {
+      const ref = old && info.price < old - 0.009 ? Math.max(old, info.listPrice || 0) : (info.listPrice && !it.listPrice ? info.listPrice : null);
+      if (ref) {
         drops++;
-        const pct = Math.round((1 - info.price / old) * 100);
+        const pct = Math.round((1 - info.price / ref) * 100);
         await notify(row.user_id, {
           title: `🔥 -${pct} % sur ${String(it.title).slice(0, 50)}`,
-          body: `${fmt(old)} → ${fmt(info.price)} chez ${it.store}${it.targetPrice && info.price <= it.targetPrice ? ' · Prix cible atteint !' : ''}`,
+          body: `${fmt(ref)} → ${fmt(info.price)} chez ${it.store}${it.targetPrice && info.price <= it.targetPrice ? ' · Prix cible atteint !' : ''}`,
           url: `${appUrl}#item=${row.id}`, tag: row.id,
         });
-        it.lastDrop = { from: old, to: info.price, d: now };
+        it.lastDrop = { from: ref, to: info.price, d: now };
       }
+      it.listPrice = info.listPrice || null;
       if (old !== info.price) it.history.push({ d: now, p: info.price });
       it.price = info.price;
       it.fetchError = null;

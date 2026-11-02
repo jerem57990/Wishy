@@ -5,7 +5,13 @@
 // - On envoie les lignes modifiées (et les suppressions) ; on récupère celles modifiées ailleurs.
 // - En cas de conflit, la modification la plus récente gagne.
 
-const TABLES = ['items', 'purchases'];
+const TABLES = ['items', 'purchases', 'lists'];
+
+// Les métadonnées créées par une version précédente n'ont pas toutes les tables
+function ensureMeta(meta) {
+  for (const k of ['hashes', 'dirty', 'tomb']) { meta[k] = meta[k] || {}; for (const t of TABLES) meta[k][t] = meta[k][t] || {}; }
+  return meta;
+}
 
 // Empreinte rapide (FNV-1a) d'une ligne, sans les champs techniques
 function hashRow(row) {
@@ -19,7 +25,7 @@ function hashRow(row) {
 const ts = (iso) => (iso ? Date.parse(iso) || 0 : 0);
 
 export function emptyMeta() {
-  return { hashes: { items: {}, purchases: {} }, dirty: { items: {}, purchases: {} }, tomb: { items: {}, purchases: {} }, lastPull: null, settingsAt: null };
+  return ensureMeta({ lastPull: null, settingsAt: null });
 }
 
 /**
@@ -28,6 +34,7 @@ export function emptyMeta() {
  * @returns {boolean} vrai s'il y a quelque chose à envoyer
  */
 export function markChanges(store, meta, nowIso = new Date().toISOString()) {
+  ensureMeta(meta);
   let any = false;
   for (const t of TABLES) {
     const rows = store[t] || [];
@@ -58,6 +65,7 @@ export function markChanges(store, meta, nowIso = new Date().toISOString()) {
 
 /** Envoie les lignes modifiées et les suppressions. */
 export async function push(supabase, store, meta) {
+  ensureMeta(meta);
   let sent = 0;
   for (const t of TABLES) {
     const rows = (store[t] || []).filter((r) => meta.dirty[t][r.id]);
@@ -84,6 +92,7 @@ export async function push(supabase, store, meta) {
  * @returns {number} nombre de lignes appliquées
  */
 export async function pull(supabase, store, meta) {
+  ensureMeta(meta);
   let applied = 0;
   // petite marge pour les horloges légèrement décalées
   const since = meta.lastPull ? new Date(ts(meta.lastPull) - 120000).toISOString() : '1970-01-01T00:00:00Z';

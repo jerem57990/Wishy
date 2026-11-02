@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   getDb: () => ipcRenderer.invoke('db:get'),
   addItem: (url, extra) => ipcRenderer.invoke('item:add', url, extra),
   updateItem: (id, patch) => ipcRenderer.invoke('item:update', id, patch),
+  setLists: (lists) => ipcRenderer.invoke('lists:set', lists),
   deleteItem: (id) => ipcRenderer.invoke('item:delete', id),
   refreshItem: (id) => ipcRenderer.invoke('item:refresh', id),
   addAlt: (id, url) => ipcRenderer.invoke('item:addAlt', id, url),

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src *" />
+  <meta name="theme-color" content="#ffd21f" />
+  <meta property="og:title" content="Une wishlist Wishy" />
+  <meta property="og:description" content="Les idées, les liens et les tailles, en un coup d'œil." />
+  <meta property="og:image" content="https://jerem57990.github.io/Wishy/assets/icon-512.png" />
+  <title>Wishlist partagée · Wishy</title>
+  <link rel="icon" href="assets/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="share.css" />
+</head>
+<body class="share-page">
+  <main class="sh">
+    <header class="sh-hero">
+      <a class="sh-brand" href="./"><img src="assets/icon.png" alt="" />Wishy</a>
+      <p class="sh-kicker">Liste partagée</p>
+      <h1 id="shTitle">Chargement…</h1>
+      <p class="sh-meta" id="shMeta"></p>
+    </header>
+    <div class="sh-filters" id="shFilters"></div>
+    <ul class="sh-grid" id="shGrid" aria-live="polite"></ul>
+    <p class="sh-empty" id="shEmpty" hidden></p>
+    <footer class="sh-foot">Consultation seule · la liste se met à jour quand son propriétaire la modifie.<br /><a href="./">Créer ma propre wishlist avec Wishy</a></footer>
+  </main>
+  <script type="module" src="share-view.js"></script>
+</body>
+</html>

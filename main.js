@@ -19,6 +19,7 @@ const DATA_FILE = () => path.join(app.getPath('userData'), 'wishy-data.json');
 const DEFAULT = {
   items: [],
   purchases: [],
+  lists: [],
   looks: [],
   cabine: { hasPhoto: false },
   settings: { checkHours: 6, alwaysOnTop: false, autostart: false, monthlyBudget: 300, notify: true, compact: false, hfToken: '' },
@@ -110,6 +111,7 @@ async function addItem(url, extra = {}) {
     title: extra.title || info.title || info.store || 'Article',
     image: info.image || null,
     price: extra.price ?? info.price ?? null,
+    listPrice: info.listPrice || null,
     currency: info.currency || 'EUR',
     store: info.store,
     brand: info.brand || null,
@@ -173,11 +175,14 @@ async function checkItem(item) {
     const old = item.price;
     if (!item.image && info.image) item.image = info.image;
     if (old && info.price < old - 0.009) {
-      notifyDrop(item, old, info.price, item.store);
+      notifyDrop(item, info.listPrice && info.listPrice > old ? info.listPrice : old, info.price, item.store);
       item.lastDrop = { from: old, to: info.price, d: now };
+    } else if (info.listPrice && !item.listPrice) {
+      notifyDrop(item, info.listPrice, info.price, item.store); // la boutique vient d'afficher une promo
     } else if (!old && item.targetPrice && info.price <= item.targetPrice) {
       notifyDrop(item, info.price, info.price, item.store);
     }
+    item.listPrice = info.listPrice || null;
     if (old !== info.price) (item.history = item.history || []).push({ d: now, p: info.price });
     item.price = info.price;
     item.fetchError = null;
@@ -258,6 +263,7 @@ function setupUpdater() {
 // ---------- IPC ----------
 function registerIpc() {
   ipcMain.handle('db:get', () => db);
+  ipcMain.handle('lists:set', (_, lists) => { db.lists = Array.isArray(lists) ? lists : []; save(); return { ok: true }; });
   ipcMain.handle('cloud:status', () => cloud.status());
   ipcMain.handle('cloud:login', (_, email, password, mode) => cloud.login(email, password, mode));
   ipcMain.handle('cloud:logout', () => cloud.logout());

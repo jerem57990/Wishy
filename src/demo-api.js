@@ -20,6 +20,7 @@ const db = {
     { id: 'a7', url: 'https://www.ikea.com/fr/lampe', title: 'Lampe à poser champignon jaune', image: img('#ffe36e', '#17171c', '💡'), price: 34.99, store: 'ikea.com', category: 'maison', priority: 1, addedAt: iso(2), lastCheck: iso(0.1), status: 'wish', history: hist([[2, 34.99]]), alternatives: [] },
   ],
   purchases: [],
+  lists: [{ id: 'l1', name: 'Idées cadeaux Noël', itemIds: ['a1', 'a4', 'a8'], createdAt: iso(1), shareToken: null }],
   settings: { checkHours: 6, alwaysOnTop: false, autostart: false, monthlyBudget: 300, notify: true },
   lastGlobalCheck: iso(0.05),
 };
@@ -45,6 +46,7 @@ export default {
     return { ok: true, item };
   },
   updateItem: async (id, patch) => { const it = db.items.find((i) => i.id === id); if (patch.price != null) it.history.push({ d: new Date().toISOString(), p: patch.price }); Object.assign(it, patch); for (const p of db.purchases) if (p.itemId === id && patch.title) p.title = patch.title; return { ok: true }; },
+  setLists: async (lists) => { db.lists = lists; return { ok: true }; },
   deleteItem: async (id) => { db.items = db.items.filter((i) => i.id !== id); return { ok: true }; },
   refreshItem: async () => ({ ok: true }),
   addAlt: async (id, url) => { const it = db.items.find((i) => i.id === id); it.alternatives.push({ url, store: new URL(url).hostname, price: null }); return { ok: true, error: 'Mode démo' }; },

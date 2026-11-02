@@ -60,10 +60,14 @@
             <div class="hero-3d" id="hero3d" aria-hidden="true"></div>
           </div>
 
+          <div class="lists-bar" id="listsBar"></div>
+          <div class="list-head" id="listHead" hidden></div>
+
           <div class="toolbar">
             <div class="chips" id="catChips" role="tablist"></div>
             <div class="toolbar-right">
               <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg><input id="search" placeholder="Rechercher" /></label>
+              <button class="btn-ghost" id="selectBtn" type="button">Sélectionner</button>
               <select id="sort" aria-label="Trier">
                 <option value="recent">Plus récents</option>
                 <option value="drop">Plus grosse baisse</option>
@@ -75,6 +79,8 @@
           </div>
 
           <ul class="list" id="itemList"></ul>
+          <div class="selbar" id="selBar" hidden></div>
+          <div class="menu" id="listMenu" hidden></div>
           <div class="empty" id="emptyState" hidden>
             <div class="empty-3d">🛍️</div>
             <h3>Ta wishlist est vide</h3>
@@ -86,7 +92,7 @@
         <section class="view" id="view-promos">
           <div class="page-head">
             <h2>Promos en cours</h2>
-            <p>Les articles dont le prix a baissé depuis que tu les as ajoutés, et ceux qui ont atteint ton prix cible.</p>
+            <p>Les articles soldés sur le site de la boutique, ceux dont le prix a baissé depuis que tu les as ajoutés, et ceux qui ont atteint ton prix cible.</p>
           </div>
           <ul class="list" id="promoList"></ul>
           <div class="empty" id="promoEmpty" hidden>
@@ -228,6 +234,15 @@
       <label>Date d'achat<input type="date" id="buyDate" required /></label>
       <label>Boutique<input type="text" id="buyStore" /></label>
       <div class="dlg-btns"><button value="cancel" class="btn-ghost" formnovalidate>Annuler</button><button value="ok" class="btn-sun">Enregistrer l'achat</button></div>
+    </form>
+  </dialog>
+
+  <!-- Boîte de dialogue texte (nom de liste…) -->
+  <dialog id="askDlg" class="dlg">
+    <form method="dialog" id="askForm">
+      <h3 id="askTitle"></h3>
+      <label><span id="askLabel"></span><input id="askInput" type="text" maxlength="60" required /></label>
+      <div class="dlg-btns"><button value="cancel" class="btn-ghost" formnovalidate>Annuler</button><button value="ok" class="btn-sun" id="askOk">OK</button></div>
     </form>
   </dialog>
 

@@ -1,0 +1,32 @@
+/* Page publique d'une liste partagée */
+body.share-page { overflow: auto; background: var(--cloud); }
+.sh { max-width: 1080px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 40px; }
+.sh-hero { position: relative; background: var(--sun); border-radius: 28px; padding: 22px 24px 26px; overflow: hidden; }
+.sh-hero::before { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(23, 23, 28, .07) 1.6px, transparent 1.7px); background-size: 18px 18px; mask-image: linear-gradient(90deg, transparent 40%, #000 90%); }
+.sh-brand { position: relative; display: inline-flex; align-items: center; gap: 8px; font: 700 18px var(--font-display); color: var(--ink); text-decoration: none; }
+.sh-brand img { width: 28px; height: 28px; border-radius: 8px; }
+.sh-kicker { position: relative; margin: 26px 0 2px; font-weight: 600; color: rgba(23, 23, 28, .7); }
+.sh-hero h1 { position: relative; margin: 0; font: 800 clamp(34px, 7vw, 64px)/1 var(--font-display); letter-spacing: -.04em; font-stretch: 88%; }
+.sh-meta { position: relative; margin: 10px 0 0; font-weight: 600; color: rgba(23, 23, 28, .72); }
+.sh-filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0 12px; }
+.sh-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.sh-card { background: var(--paper); border-radius: 22px; overflow: hidden; display: flex; flex-direction: column; }
+.sh-card.bought { opacity: .6; }
+.sh-img { position: relative; display: block; aspect-ratio: 1; background: #f4f5f7; }
+.sh-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.sh-ph { position: absolute; inset: 0; display: grid; place-items: center; font-size: 64px; opacity: .85; }
+.sh-cat { position: absolute; left: 10px; top: 10px; background: rgba(255, 255, 255, .92); border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 600; color: var(--ink); }
+.sh-bought { position: absolute; right: 10px; top: 10px; background: var(--ink); color: #fff; border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+.sh-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.sh-store { margin: 0; font-size: 13px; color: var(--muted); }
+.sh-body h2 { margin: 0; font: 700 17px/1.25 var(--font-display); letter-spacing: -.01em; }
+.sh-price { margin: 6px 0 0; font: 800 22px var(--font-display); letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sh-price s { font: 500 14px var(--font-body); color: var(--muted); }
+.sh-facts { margin: 2px 0 0; font-size: 14px; color: var(--ink-2); }
+.sh-note { margin: 6px 0 0; font-size: 14px; color: var(--ink-2); background: var(--cloud); border-radius: 12px; padding: 8px 10px; }
+.sh-go { margin-top: auto; align-self: stretch; text-decoration: none; text-align: center; white-space: normal; }
+.sh-body .sh-go { margin-top: 12px; }
+.sh-empty { text-align: center; color: var(--muted); padding: 40px 0; font-weight: 600; }
+.sh-foot { text-align: center; color: var(--muted); font-size: 13px; margin-top: 28px; line-height: 1.6; }
+.sh-foot a { color: var(--ink); font-weight: 600; }
+@media (max-width: 520px) { .sh-grid { grid-template-columns: 1fr 1fr; gap: 8px; } .sh-body { padding: 10px 12px 12px; } .sh-body h2 { font-size: 15px; } .sh-price { font-size: 18px; } .sh-go { padding: 8px 10px; font-size: 13px; } }

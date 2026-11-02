@@ -104,9 +104,10 @@ const bestPrice = (it) => {
   return all.sort((a, b) => a.price - b.price)[0] || null;
 };
 const dropOf = (it) => {
-  const ref = maxPrice(it), cur = bestPrice(it)?.price;
+  // référence : le prix le plus haut observé, ou le prix barré affiché par la boutique
+  const seen = maxPrice(it), ref = Math.max(seen, it.listPrice || 0), cur = bestPrice(it)?.price;
   if (!ref || !cur || cur >= ref - 0.009) return null;
-  return { from: ref, to: cur, pct: Math.round((1 - cur / ref) * 100) };
+  return { from: ref, to: cur, pct: Math.round((1 - cur / ref) * 100), onSite: (it.listPrice || 0) > seen - 0.009 };
 };
 const atTarget = (it) => it.targetPrice && bestPrice(it)?.price && bestPrice(it).price <= it.targetPrice;
 const pieceOf = (it) => {
@@ -218,7 +219,7 @@ function confetti(fromEl) {
 // État
 // ---------------------------------------------------------------------------
 let db = await api.getDb();
-const ui = { cat: 'all', q: '', sort: 'recent', monthOffset: 0, openId: null };
+const ui = { cat: 'all', q: '', sort: 'recent', monthOffset: 0, openId: null, list: null, selecting: false, sel: new Set() };
 let hero, bars;
 const outfit = { top: null, bottom: null, shoes: null };
 const cab = { photo: null, lookId: null, lookUrl: null, busy: false, init: false };
@@ -229,6 +230,7 @@ const lookCache = new Map();
 // ---------------------------------------------------------------------------
 function render() {
   renderHero();
+  renderListsBar();
   renderChips();
   renderList();
   renderPromos();
@@ -278,12 +280,13 @@ function rowHTML(it) {
   const best = bestPrice(it);
   const d = dropOf(it);
   const badges = [];
-  if (d) badges.push(`<span class="pill drop">−${d.pct} %</span>`);
+  if (d) badges.push(`<span class="pill drop" title="${d.onSite ? 'Prix barré affiché par la boutique' : 'Baisse depuis l\'ajout'}">−${d.pct} %</span>`);
   if (atTarget(it)) badges.push('<span class="pill target">Prix cible</span>');
   if (it.status === 'bought') badges.push('<span class="pill bought">Acheté</span>');
   const otherShop = best && best.store !== it.store ? ` · moins cher chez ${esc(best.store)}` : '';
-  return `<li class="row" data-id="${it.id}" tabindex="0">
-    ${thumbHTML(it)}
+  const on = ui.sel.has(it.id);
+  return `<li class="row ${on ? 'sel' : ''}" data-id="${it.id}" tabindex="0" ${ui.selecting ? `role="checkbox" aria-checked="${on}"` : ''}>
+    <div class="thumb-wrap"><span class="check ${on ? 'on' : ''}" aria-hidden="true">${on ? '✓' : ''}</span>${thumbHTML(it)}</div>
     <div class="r-main">
       <div class="r-title">${esc(it.title)}</div>
       <div class="r-sub"><span>${esc(it.store || '')}</span><span class="prio" title="Priorité">${'★'.repeat(it.priority || 0)}</span>${it.fetchError && !it.price ? `<span class="warn">Prix à saisir</span>` : `<span>${c.label}${otherShop}</span>`}</div>
@@ -294,8 +297,11 @@ function rowHTML(it) {
   </li>`;
 }
 
+function currentList() { return (db.lists || []).find((l) => l.id === ui.list) || null; }
 function renderList() {
-  let items = wishItems();
+  const L = currentList();
+  if (ui.list && !L) ui.list = null;
+  let items = L ? db.items.filter((i) => L.itemIds.includes(i.id)) : wishItems();
   if (ui.cat !== 'all') items = items.filter((i) => i.category === ui.cat);
   if (ui.q) { const q = ui.q.toLowerCase(); items = items.filter((i) => (i.title + ' ' + i.store + ' ' + (i.brand || '')).toLowerCase().includes(q)); }
   const by = {
@@ -306,8 +312,12 @@ function renderList() {
     priority: (a, b) => (b.priority || 0) - (a.priority || 0),
   };
   items.sort(by[ui.sort]);
+  ui.visible = items.map((i) => i.id);
+  $('#itemList').classList.toggle('selecting', ui.selecting);
   $('#itemList').innerHTML = items.map(rowHTML).join('');
-  $('#emptyState').hidden = wishItems().length > 0;
+  $('#emptyState').hidden = wishItems().length > 0 || !!L;
+  renderListHead(L, items);
+  renderSelBar();
 }
 
 function renderPromos() {
@@ -315,6 +325,77 @@ function renderPromos() {
   $('#promoList').innerHTML = items.map(rowHTML).join('');
   $('#promoEmpty').hidden = items.length > 0;
 }
+
+// --- Sous-listes ---
+const listItems = (L) => db.items.filter((i) => L.itemIds.includes(i.id));
+async function saveLists(lists) { db.lists = lists; await api.setLists(lists); }
+function renderListsBar() {
+  const lists = db.lists || [];
+  $('#listsBar').innerHTML = `<button class="lchip ${!ui.list ? 'active' : ''}" data-list="">Toute la wishlist</button>`
+    + lists.map((l) => `<button class="lchip ${ui.list === l.id ? 'active' : ''}" data-list="${l.id}">${esc(l.name)}<small>${listItems(l).length}</small></button>`).join('')
+    + '<button class="lchip add" data-newlist>＋ Nouvelle liste</button>';
+}
+function renderListHead(L, items) {
+  const h = $('#listHead');
+  h.hidden = !L;
+  if (!L) return;
+  const total = items.filter((i) => i.status === 'wish').reduce((s, i) => s + (bestPrice(i)?.price || 0), 0);
+  h.innerHTML = `<div><h3>${esc(L.name)}</h3><p>${items.length} article${items.length > 1 ? 's' : ''} · ${eur(total)}${L.shareToken ? ' · <span class="shared">partagée</span>' : ''}</p></div>
+    <div class="acts"><button class="btn-sun small" data-lact="word">Exporter en Word</button><button class="btn-ghost small" data-lact="share">${L.shareToken ? 'Copier le lien' : 'Partager'}</button>${L.shareToken ? '<button class="btn-ghost small" data-lact="unshare">Ne plus partager</button>' : ''}<button class="btn-ghost small" data-lact="rename">Renommer</button><button class="btn-ghost small" data-lact="delete">Supprimer</button></div>`;
+}
+function renderSelBar() {
+  const bar = $('#selBar');
+  bar.hidden = !ui.selecting;
+  $('#selectBtn').classList.toggle('on', ui.selecting);
+  $('#selectBtn').textContent = ui.selecting ? 'Terminer' : 'Sélectionner';
+  if (!ui.selecting) return;
+  const n = ui.sel.size, L = currentList();
+  bar.innerHTML = `<strong>${n} sélectionné${n > 1 ? 's' : ''}</strong>
+    <button data-sact="all">${ui.visible?.length && ui.visible.every((id) => ui.sel.has(id)) ? 'Aucun' : 'Tout'}</button>
+    <button data-sact="addto" ${n ? '' : 'disabled'}>Ajouter à une liste</button>
+    ${L ? `<button data-sact="remove" ${n ? '' : 'disabled'}>Retirer de la liste</button>` : ''}
+    <button class="prim" data-sact="word" ${n ? '' : 'disabled'}>Exporter en Word</button>`;
+}
+function askText(title, label, value = '', ok = 'OK') {
+  return new Promise((resolve) => {
+    const d = $('#askDlg');
+    $('#askTitle').textContent = title; $('#askLabel').textContent = label; $('#askInput').value = value; $('#askOk').textContent = ok;
+    d.returnValue = '';
+    d.onclose = () => resolve(d.returnValue === 'ok' ? $('#askInput').value.trim() || null : null);
+    d.showModal();
+    setTimeout(() => $('#askInput').select(), 30);
+  });
+}
+async function newList(itemIds = []) {
+  const name = await askText('Nouvelle liste', 'Nom de la liste', '', 'Créer la liste');
+  if (!name) return null;
+  const L = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, itemIds: [...new Set(itemIds)], createdAt: new Date().toISOString(), shareToken: null };
+  await saveLists([...(db.lists || []), L]);
+  toast(`Liste « ${name} » créée`);
+  return L;
+}
+async function addToList(listId, ids) {
+  const lists = (db.lists || []).map((l) => (l.id === listId ? { ...l, itemIds: [...new Set([...l.itemIds, ...ids])] } : l));
+  await saveLists(lists);
+  toast(`Ajouté à « ${lists.find((l) => l.id === listId).name} »`);
+}
+function openListMenu(anchor, ids) {
+  const m = $('#listMenu');
+  m.innerHTML = (db.lists || []).map((l) => `<button data-to="${l.id}">${esc(l.name)}</button>`).join('') + ((db.lists || []).length ? '<hr>' : '') + '<button data-to="__new">＋ Nouvelle liste…</button>';
+  m.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  m.style.left = Math.min(r.left, innerWidth - m.offsetWidth - 10) + 'px';
+  m.style.top = Math.max(10, r.top - m.offsetHeight - 8) + 'px';
+  m.onclick = async (e) => {
+    const b = e.target.closest('[data-to]');
+    if (!b) return;
+    m.hidden = true;
+    if (b.dataset.to === '__new') await newList(ids); else await addToList(b.dataset.to, ids);
+    ui.selecting = false; ui.sel.clear();
+    render();
+  };
+}
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('#listMenu') && !e.target.closest('[data-sact="addto"]') && !e.target.closest('[data-dact="addto"]')) $('#listMenu').hidden = true; });
 
 // --- Dashboard dépenses ---
 function monthsWindow() {
@@ -583,7 +664,7 @@ function openDrawer(id, refreshOnly = false) {
       <div class="d-store"><span>${c.emoji} ${c.label}</span><span>·</span><span>${esc(it.store || '')}</span><span>·</span><span>vérifié ${ago(it.lastCheck)}</span></div>
       <label class="d-title-wrap"><span class="sr">Nom de l'article</span><textarea class="d-title" id="dTitle" rows="1" spellcheck="false" title="Clique pour renommer">${esc(it.title)}</textarea><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg></label>
       <div class="d-price">${it.price == null ? `<input type="number" step="0.01" id="dManualPrice" placeholder="Prix €" aria-label="Saisir le prix" />` : `<strong>${eur(best?.price)}</strong>`}
-        ${d ? `<s class="muted">${eur(d.from)}</s><span class="pill drop">−${d.pct} %</span>` : ''}${atTarget(it) ? '<span class="pill target">Prix cible atteint</span>' : ''}</div>
+        ${d ? `<s class="muted">${eur(d.from)}</s><span class="pill drop">−${d.pct} %${d.onSite ? ' sur le site' : ''}</span>` : ''}${atTarget(it) ? '<span class="pill target">Prix cible atteint</span>' : ''}</div>
       ${it.fetchError && it.price == null ? `<p class="muted" style="font-size:13px;margin-top:6px">Le site n'a pas laissé lire le prix automatiquement. Saisis-le une fois ; Wishy réessaiera à chaque vérification.</p>` : ''}
       <div class="d-actions">
         ${it.status === 'wish' ? '<button class="btn-sun" data-act="buy">Marquer comme acheté</button>' : `<span class="pill bought">Acheté le ${new Date(it.boughtAt).toLocaleDateString('fr-FR')} · ${eur(it.boughtPrice)}</span>`}
@@ -610,8 +691,13 @@ function openDrawer(id, refreshOnly = false) {
           ${it.category === 'vetements' ? `<label class="field">Type<select id="dPiece"><option value="">Autre / accessoire</option>${Object.entries(PIECES).map(([k, v]) => `<option value="${k}" ${k === piece ? 'selected' : ''}>${v.label}</option>`).join('')}</select></label>
           <label class="field">Taille<input id="dSize" value="${esc(it.size || '')}" placeholder="M, 42, W32…" /></label>
           <label class="field" style="grid-column:1/-1">Photo pour la cabine (lien d'image, facultatif)<input id="dTryImg" value="${esc(it.tryonImage || '')}" placeholder="Idéalement le vêtement seul, sur fond blanc" /></label>` : ''}
+          <label class="field" style="grid-column:1/-1">Note (visible dans l'export et le partage)<textarea id="dNotes" class="d-notes" placeholder="Couleur, coupe, idée cadeau…">${esc(it.notes || '')}</textarea></label>
           <div class="field">Priorité<div class="stars">${[1, 2, 3].map((n) => `<button data-prio="${n}" class="${n <= (it.priority || 0) ? 'on' : ''}" aria-label="Priorité ${n}">★</button>`).join('')}</div></div>
         </div>
+      </div>
+      <div class="d-section">
+        <h4>Listes</h4>
+        <div class="d-lists">${(db.lists || []).filter((l) => l.itemIds.includes(it.id)).map((l) => `<button class="lchip" data-golist="${l.id}">${esc(l.name)}</button>`).join('')}<button class="lchip add" data-dact="addto">＋ Ajouter à une liste</button></div>
       </div>
       <button class="danger" data-act="delete">Retirer de la wishlist</button>
     </div>`;
@@ -677,10 +763,64 @@ $('#catChips').addEventListener('click', (e) => { const b = e.target.closest('.c
 $('#search').addEventListener('input', (e) => { ui.q = e.target.value; renderList(); });
 $('#sort').addEventListener('change', (e) => { ui.sort = e.target.value; renderList(); });
 
+function toggleSel(id) { ui.sel.has(id) ? ui.sel.delete(id) : ui.sel.add(id); renderList(); }
 for (const sel of ['#itemList', '#promoList']) {
-  $(sel).addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) openDrawer(r.dataset.id); });
-  $(sel).addEventListener('keydown', (e) => { const r = e.target.closest('.row'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDrawer(r.dataset.id); } });
+  const act = (r) => (ui.selecting && sel === '#itemList' ? toggleSel(r.dataset.id) : openDrawer(r.dataset.id));
+  $(sel).addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) act(r); });
+  $(sel).addEventListener('keydown', (e) => { const r = e.target.closest('.row'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); act(r); } });
 }
+
+// Sous-listes, sélection, export, partage
+async function doExport(items, title) {
+  if (!items.length) return toast('Aucun article à exporter', 'err');
+  toast('Création du document Word…');
+  try {
+    const { exportWord } = await import('./export-docx.js');
+    await exportWord(items, title, { api, CATS, PIECES, bestPrice, dropOf, pieceOf });
+  } catch (e) { console.error(e); toast(`Export impossible : ${e.message}`, 'err'); }
+}
+async function doShare(L) {
+  try {
+    const { shareList } = await import('./share.js');
+    const r = await shareList(L, { api, saveLists, db: () => db, askText, toast });
+    if (r) render();
+  } catch (e) { console.error(e); toast(e.message, 'err'); }
+}
+$('#selectBtn').addEventListener('click', () => { ui.selecting = !ui.selecting; ui.sel.clear(); renderList(); });
+$('#listsBar').addEventListener('click', async (e) => {
+  const b = e.target.closest('.lchip');
+  if (!b) return;
+  if ('newlist' in b.dataset) {
+    const L = await newList(ui.selecting ? [...ui.sel] : []);
+    if (L) { ui.list = L.id; ui.selecting = false; ui.sel.clear(); }
+  } else { ui.list = b.dataset.list || null; ui.sel.clear(); }
+  ui.cat = 'all';
+  render();
+});
+$('#listHead').addEventListener('click', async (e) => {
+  const a = e.target.closest('[data-lact]')?.dataset.lact, L = currentList();
+  if (!a || !L) return;
+  if (a === 'word') doExport(listItems(L), L.name);
+  if (a === 'share') doShare(L);
+  if (a === 'unshare') { const { stopSharing } = await import('./share.js'); await stopSharing(L, { api, saveLists, db: () => db, toast }); render(); }
+  if (a === 'rename') {
+    const name = await askText('Renommer la liste', 'Nouveau nom', L.name, 'Renommer');
+    if (name) { await saveLists(db.lists.map((l) => (l.id === L.id ? { ...l, name } : l))); render(); }
+  }
+  if (a === 'delete') {
+    const name = await askText(`Supprimer « ${L.name} » ?`, 'Les articles restent dans ta wishlist. Tape SUPPRIMER pour confirmer', '', 'Supprimer');
+    if (name && name.toUpperCase() === 'SUPPRIMER') { await saveLists(db.lists.filter((l) => l.id !== L.id)); ui.list = null; render(); toast('Liste supprimée'); }
+  }
+});
+$('#selBar').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-sact]');
+  if (!b) return;
+  const a = b.dataset.sact, ids = [...ui.sel], L = currentList();
+  if (a === 'all') { const all = ui.visible.every((id) => ui.sel.has(id)); ui.sel = new Set(all ? [] : ui.visible); renderList(); }
+  if (a === 'addto') openListMenu(b, ids);
+  if (a === 'remove' && L) { await saveLists(db.lists.map((l) => (l.id === L.id ? { ...l, itemIds: l.itemIds.filter((id) => !ui.sel.has(id)) } : l))); ui.sel.clear(); render(); toast('Retiré de la liste'); }
+  if (a === 'word') doExport(db.items.filter((i) => ui.sel.has(i.id)), L ? L.name : 'Ma wishlist');
+});
 
 $('#checkBtn').addEventListener('click', async () => { await api.checkPrices(); db = await api.getDb(); render(); });
 
@@ -704,6 +844,10 @@ $('#drawer').addEventListener('click', async (e) => {
     navigator.clipboard?.writeText(t).then(() => toast(`Copié : ${t}`), () => {});
     return;
   }
+  const da = e.target.closest('[data-dact="addto"]');
+  if (da) { openListMenu(da, [it.id]); return; }
+  const gl = e.target.closest('[data-golist]');
+  if (gl) { ui.list = gl.dataset.golist; closeDrawer(); switchView('wishlist'); render(); return; }
   const go = e.target.closest('[data-goto]');
   if (go) { openDrawer(go.dataset.goto); return; }
   const shop = e.target.closest('.shop, .a-store');
@@ -723,6 +867,7 @@ $('#drawer').addEventListener('change', (e) => {
   if (e.target.id === 'dCat') update(id, { category: e.target.value, categoryEdited: true });
   if (e.target.id === 'dPiece') update(id, { piece: e.target.value || null });
   if (e.target.id === 'dSize') update(id, { size: e.target.value });
+  if (e.target.id === 'dNotes') update(id, { notes: e.target.value.trim() });
   if (e.target.id === 'dTryImg') update(id, { tryonImage: e.target.value.trim() || null });
   if (e.target.id === 'dManualPrice' && e.target.value) update(id, { price: +e.target.value });
 });
@@ -913,4 +1058,4 @@ api.on('tryon:progress', ({ text, pct }) => { $('#tpBar').style.width = Math.max
 try { hero = createHeroScene($('#hero3d')); } catch (e) { console.warn('WebGL indisponible', e); }
 render();
 setInterval(renderHero, 60000);
-window.__wishy = { switchView, openDrawer, setOutfit, cab, renderStage, renderCabinePick };
+window.__wishy = { switchView, openDrawer, setOutfit, cab, renderStage, renderCabinePick, ui, render };

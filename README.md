@@ -53,6 +53,14 @@ Bon à savoir :
 - **Chaussures.** Elles s'affichent avec la tenue, mais l'IA ne les enfile pas encore.
 - **Confidentialité.** Ta photo est envoyée au modèle sur Hugging Face le temps de l'essayage ; elle est stockée sur ton PC dans `%APPDATA%\Wishy\cabine`.
 
+## Listes, export Word et partage
+
+- **Sélectionner** (à côté de la recherche) : coche plusieurs articles, puis **Ajouter à une liste** ou **Exporter en Word**.
+- **Listes** : crée des sous-listes (« Noël », « Hiver »…) depuis la barre au-dessus des catégories. Une liste peut être renommée, exportée, partagée ou supprimée (les articles restent dans ta wishlist).
+- **Export Word** : document avec photos, liens cliquables, prix (et prix barrés), tailles et notes, regroupés par catégorie. Sur iPhone, il s'ouvre dans la feuille de partage (Fichiers, Mail, WhatsApp…).
+- **Partage** : depuis une liste, **Partager** crée un lien public en lecture seule (`…/Wishy/share.html?l=…`). La personne voit les articles, les liens, les tailles et tes notes, sans pouvoir rien modifier ; la page suit tes changements. **Ne plus partager** désactive le lien. Nécessite la synchronisation (compte Wishy).
+- **Note** : chaque article a un champ libre (couleur, coupe, idée cadeau…) repris dans l'export et le partage.
+
 ## Couleurs et combos Pantone
 
 Pour chaque vêtement, Wishy lit la couleur sur la photo et l'associe à la référence **Pantone TCX** la plus proche (le nuancier textile, 2 300 teintes). Dans la fiche de l'article :

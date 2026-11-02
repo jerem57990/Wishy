@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
   const now = new Date().toISOString();
   const item = {
     id: uid(), url: info.url || url, title: info.title || info.store || 'Article', image: info.image || null,
-    price: info.price ?? null, currency: info.currency || 'EUR', store: info.store, brand: info.brand || null,
+    price: info.price ?? null, listPrice: info.listPrice || null, currency: info.currency || 'EUR', store: info.store, brand: info.brand || null,
     category: info.category || 'autre', size: '', targetPrice: null, priority: 2, addedAt: now, lastCheck: now,
     status: 'wish', history: info.price ? [{ d: now, p: info.price }] : [], alternatives: [],
     fetchError: info.ok && info.price ? null : (info.error || 'Prix non détecté — tu peux le saisir à la main'),

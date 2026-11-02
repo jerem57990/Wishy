@@ -10,7 +10,7 @@ export const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_K
 });
 
 const LS_DB = 'wishy-db', LS_META = 'wishy-sync-meta';
-const DEFAULT = { items: [], purchases: [], looks: [], cabine: { hasPhoto: false }, settings: { monthlyBudget: 300, notify: true, hfToken: '' } };
+const DEFAULT = { items: [], purchases: [], lists: [], looks: [], cabine: { hasPhoto: false }, settings: { monthlyBudget: 300, notify: true, hfToken: '' } };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
@@ -69,6 +69,7 @@ export function startSync() {
     channel = supabase.channel('wishy-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => scheduleSync(400))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, () => scheduleSync(400))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lists' }, () => scheduleSync(400))
       .subscribe();
   }
 }
@@ -103,6 +104,7 @@ async function checkItem(item) {
     if (item.price && info.price < item.price - 0.009) item.lastDrop = { from: item.price, to: info.price, d: now };
     if (item.price !== info.price) (item.history = item.history || []).push({ d: now, p: info.price });
     item.price = info.price;
+    item.listPrice = info.listPrice || null;
     item.fetchError = null;
     delete item.needsFetch;
   } else if (!item.price) item.fetchError = info.error || 'Prix non détecté';
@@ -130,7 +132,7 @@ const api = {
     let host = ''; try { host = new URL(url).hostname.replace(/^www\./, ''); } catch {}
     const item = {
       id: uid(), url: info.url || url, title: extra.title || info.title || info.store || host || 'Article', image: info.image || null,
-      price: extra.price ?? info.price ?? null, currency: info.currency || 'EUR', store: info.store || host, brand: info.brand || null,
+      price: extra.price ?? info.price ?? null, listPrice: info.listPrice || null, currency: info.currency || 'EUR', store: info.store || host, brand: info.brand || null,
       category: extra.category || info.category || 'autre', size: '', targetPrice: null, priority: 2, addedAt: now, lastCheck: now,
       status: 'wish', history: info.price ? [{ d: now, p: info.price }] : [], alternatives: [],
       fetchError: info.ok && info.price ? null : (info.error || 'Prix non détecté — tu peux le saisir à la main'),
@@ -150,6 +152,7 @@ const api = {
     save({ silent: true });
     return { ok: true, item: it };
   },
+  async setLists(lists) { db.lists = Array.isArray(lists) ? lists : []; save({ silent: true }); return { ok: true }; },
   async deleteItem(id) { db.items = db.items.filter((i) => i.id !== id); save({ silent: true }); return { ok: true }; },
   async refreshItem(id) { const it = db.items.find((i) => i.id === id); if (it) { await checkItem(it); save({ silent: true }); } return { ok: true, item: it }; },
   async addAlt(id, url) {
