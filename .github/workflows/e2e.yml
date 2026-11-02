@@ -1,0 +1,21 @@
+# Test manuel de bout en bout du cloud (compte de test temporaire)
+name: Test cloud
+on:
+  workflow_dispatch:
+    inputs:
+      email: { required: true }
+      password: { required: true }
+      urls: { required: false, default: 'https://store.steampowered.com/app/1145350/Hades_II/' }
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci --ignore-scripts
+      - run: node scripts/e2e-cloud.mjs
+        env:
+          E2E_EMAIL: ${{ inputs.email }}
+          E2E_PASSWORD: ${{ inputs.password }}
+          E2E_URLS: ${{ inputs.urls }}

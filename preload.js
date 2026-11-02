@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('api', {
   importData: (data) => ipcRenderer.invoke('data:import', data),
   open: (url) => ipcRenderer.invoke('open', url),
   imageData: (url) => ipcRenderer.invoke('img:data', url),
+  cloudStatus: () => ipcRenderer.invoke('cloud:status'),
+  cloudLogin: (email, password, mode) => ipcRenderer.invoke('cloud:login', email, password, mode),
+  cloudLogout: () => ipcRenderer.invoke('cloud:logout'),
+  cloudSync: () => ipcRenderer.invoke('cloud:sync'),
   getUpdate: () => ipcRenderer.invoke('update:get'),
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
@@ -27,7 +31,7 @@ contextBridge.exposeInMainWorld('api', {
   hide: () => ipcRenderer.send('win:hide'),
   maximize: () => ipcRenderer.send('win:maximize'),
   on: (channel, cb) => {
-    const allowed = ['db:changed', 'toast', 'checking', 'focus-item', 'tryon:progress', 'update:status'];
+    const allowed = ['db:changed', 'toast', 'checking', 'focus-item', 'tryon:progress', 'update:status', 'cloud:status'];
     if (allowed.includes(channel)) ipcRenderer.on(channel, (_, data) => cb(data));
   },
 });

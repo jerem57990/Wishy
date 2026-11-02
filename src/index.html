@@ -125,7 +125,7 @@
               <div><p class="muted">Économisé</p><p class="big mint" id="mSaved">0 €</p></div>
             </div>
             <div class="panel bars3d">
-              <div class="panel-head"><h3>12 derniers mois</h3><span class="muted">Fais tourner le graphique à la souris</span></div>
+              <div class="panel-head"><h3>12 derniers mois</h3><span class="muted">Fais tourner le graphique</span></div>
               <div id="bars3d" class="canvas-host"></div>
             </div>
             <div class="panel cats">
@@ -192,15 +192,16 @@
         <section class="view" id="view-reglages">
           <div class="page-head"><h2>Réglages</h2></div>
           <div class="settings">
-            <label class="set"><div><strong>Lancer Wishy au démarrage de Windows</strong><span>Il démarre discrètement dans la barre des tâches.</span></div><input type="checkbox" class="switch" id="sAutostart" /></label>
-            <label class="set"><div><strong>Toujours au premier plan</strong><span>Le widget reste visible au-dessus des autres fenêtres.</span></div><input type="checkbox" class="switch" id="sTop" /></label>
+            <div class="set col desktop-only" id="cloudBox"></div>
+            <label class="set desktop-only"><div><strong>Lancer Wishy au démarrage de Windows</strong><span>Il démarre discrètement dans la barre des tâches.</span></div><input type="checkbox" class="switch" id="sAutostart" /></label>
+            <label class="set desktop-only"><div><strong>Toujours au premier plan</strong><span>Le widget reste visible au-dessus des autres fenêtres.</span></div><input type="checkbox" class="switch" id="sTop" /></label>
             <label class="set"><div><strong>Notifications de baisse de prix</strong><span>Une notification Windows dès qu'un article baisse.</span></div><input type="checkbox" class="switch" id="sNotify" /></label>
             <label class="set"><div><strong>Fréquence de vérification</strong><span>Plus souvent = plus de requêtes vers les boutiques.</span></div>
               <select id="sHours"><option value="1">Toutes les heures</option><option value="3">Toutes les 3 h</option><option value="6">Toutes les 6 h</option><option value="12">Toutes les 12 h</option><option value="24">Une fois par jour</option></select></label>
             <label class="set"><div><strong>Budget mensuel</strong><span>Sert à la jauge du tableau des dépenses.</span></div><input type="number" id="sBudget" min="0" step="10" class="num" /></label>
             <label class="set"><div><strong>Jeton Hugging Face (cabine d'essayage)</strong><span>Facultatif mais conseillé : un compte gratuit donne plus d'essayages par jour. Crée un jeton « Read » sur <a href="#" data-ext="https://huggingface.co/settings/tokens">huggingface.co/settings/tokens</a>.</span></div><input type="password" id="sToken" class="num wide" placeholder="hf_…" autocomplete="off" /></label>
-            <div class="set"><div><strong>Raccourcis clavier</strong><span><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>W</kbd> ajoute le lien copié · <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Espace</kbd> affiche ou masque Wishy</span></div></div>
-            <div class="set"><div><strong>Version <span id="appVersion"></span></strong><span id="updateInfo">Wishy se met à jour tout seul depuis GitHub.</span></div><button class="btn-ghost" id="checkUpdateBtn">Rechercher une mise à jour</button></div>
+            <div class="set desktop-only"><div><strong>Raccourcis clavier</strong><span><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>W</kbd> ajoute le lien copié · <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Espace</kbd> affiche ou masque Wishy</span></div></div>
+            <div class="set desktop-only"><div><strong>Version <span id="appVersion"></span></strong><span id="updateInfo">Wishy se met à jour tout seul depuis GitHub.</span></div><button class="btn-ghost" id="checkUpdateBtn">Rechercher une mise à jour</button></div>
             <div class="set"><div><strong>Sauvegarde</strong><span>Exporte ou restaure toute ta wishlist et tes achats.</span></div>
               <div class="set-btns"><button class="btn-ghost" id="exportBtn">Exporter</button><label class="btn-ghost">Importer<input type="file" id="importFile" accept=".json" hidden /></label></div></div>
           </div>

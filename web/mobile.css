@@ -1,0 +1,89 @@
+/* Mise en page de la web app (iPhone et navigateur). Complète styles.css. */
+
+body.web { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+body.web .shell { inset: 0; border-radius: 0; box-shadow: none; }
+body.web .titlebar { -webkit-app-region: none; padding-top: max(12px, env(safe-area-inset-top)); }
+body.web .win-ctrls, body.web .desktop-only { display: none !important; }
+body.web .drawer { inset: 0; border-radius: 0; }
+/* évite le zoom automatique de Safari sur les champs */
+body.web input, body.web select, body.web textarea { font-size: 16px; }
+
+/* ---------- Écran de connexion ---------- */
+.login {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(circle at 50% 20%, var(--sun-soft), var(--cloud) 60%);
+}
+.login-card { width: min(380px, 100%); background: var(--paper); border-radius: 28px; padding: 28px 22px 22px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 30px 60px -30px rgba(23, 23, 28, .35); }
+.login-icon { width: 64px; height: 64px; border-radius: 18px; align-self: center; }
+.login h1 { margin: 4px 0 0; text-align: center; font: 800 34px var(--font-display); letter-spacing: -.04em; }
+.login-sub { margin: 0 0 6px; text-align: center; color: var(--muted); font-size: 14px; }
+.login label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.login input { border: 0; box-shadow: inset 0 0 0 1px var(--line); border-radius: 14px; padding: 12px 14px; color: var(--ink); outline: 0; }
+.login input:focus { box-shadow: inset 0 0 0 2px var(--ink); }
+.login-msg { min-height: 1.2em; margin: 2px 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+
+/* ---------- Réglages propres au web ---------- */
+.set.col { flex-direction: column; align-items: stretch; gap: 10px; }
+.token-row { display: flex; gap: 8px; align-items: center; }
+.token-row code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; background: var(--cloud); border-radius: 10px; padding: 9px 12px; font-size: 13px; }
+.link { color: var(--ink); font-weight: 600; font-size: 14px; }
+.warn { color: #c2185b; }
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 700px) {
+  body.web .titlebar { gap: 10px; padding-left: 14px; padding-right: 12px; padding-bottom: 8px; }
+  body.web .brand { width: auto; }
+  body.web .brand span { display: none; }
+  body.web .quick-add { padding-left: 12px; min-width: 0; margin: 0; }
+  body.web .quick-add .btn-sun { padding: 9px 14px; }
+  body.web #pasteBtn { padding: 6px 10px; }
+  body.web #pasteBtn { display: inline-flex; }
+  body.web .quick-add .qa-ico { display: none; }
+
+  /* barre d'onglets en bas */
+  body.web .rail {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; width: auto; flex-direction: row; justify-content: space-around; gap: 0;
+    padding: 6px 6px max(8px, env(safe-area-inset-bottom)); background: rgba(255, 255, 255, .92); backdrop-filter: blur(14px);
+    box-shadow: 0 -1px 0 var(--line);
+  }
+  body.web .rail-spacer { display: none; }
+  body.web .nav { flex-direction: column; gap: 3px; padding: 6px 4px; flex: 1; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  body.web .nav span { display: block; }
+  body.web .nav .beta { display: none; }
+  body.web .nav.active { background: transparent; box-shadow: none; }
+  body.web .nav.active svg { fill: var(--sun); }
+  body.web .nav-badge { position: absolute; top: 2px; left: 55%; right: auto; }
+
+  body.web .main { padding: 4px 12px calc(96px + env(safe-area-inset-bottom)); }
+  body.web .hero { min-height: 220px; border-radius: 24px; }
+  body.web .hero-text { padding: 22px 20px; }
+  body.web .hero-amount { font-size: 48px; margin-bottom: 14px; }
+  body.web .hero-stats { gap: 14px 20px; }
+  body.web .hero-stats strong { font-size: 17px; }
+  body.web .hero-3d { right: -60px; top: 0; width: 52%; height: 62%; opacity: .55; }
+  body.web .toolbar { margin-top: 16px; }
+  body.web .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px; padding: 0 12px 4px; scrollbar-width: none; }
+  body.web .chips::-webkit-scrollbar { display: none; }
+  body.web .chip { flex: none; }
+  body.web .toolbar-right { width: 100%; }
+  body.web .search { flex: 1; }
+  body.web .search input { width: 100%; }
+  body.web .row { grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; padding: 10px 8px; }
+  body.web .row .spark, body.web .row .r-more { display: none; }
+  body.web .page-head h2 { font-size: 32px; }
+  body.web .page-head.row { flex-direction: column; align-items: flex-start; }
+  body.web .dash { grid-template-columns: 1fr; }
+  body.web .dash > * { grid-column: auto !important; }
+  body.web .kpis .big { font-size: 22px; }
+  body.web .canvas-host { height: 240px; }
+  body.web .cabine { grid-template-columns: 1fr; }
+  body.web .stage { height: 62vh; }
+  body.web .set { flex-wrap: wrap; }
+  body.web .num.wide { width: 100%; }
+
+  /* fiche article en plein écran */
+  body.web .drawer-card { inset: 0; width: 100%; border-radius: 0; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  body.web .drawer-x { top: max(12px, env(safe-area-inset-top)); }
+  body.web .toasts { bottom: calc(90px + env(safe-area-inset-bottom)); }
+  body.web .dlg { width: calc(100% - 32px); }
+}

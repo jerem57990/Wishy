@@ -717,10 +717,10 @@ $('#drawer').addEventListener('change', (e) => {
   const id = ui.openId;
   if (e.target.id === 'dTitle') {
     const v = e.target.value.replace(/\s+/g, ' ').trim();
-    if (v) { update(id, { title: v }); toast('Article renommé'); } else e.target.value = db.items.find((i) => i.id === id)?.title || '';
+    if (v) { update(id, { title: v, titleEdited: true }); toast('Article renommé'); } else e.target.value = db.items.find((i) => i.id === id)?.title || '';
   }
   if (e.target.id === 'dTarget') update(id, { targetPrice: e.target.value ? +e.target.value : null });
-  if (e.target.id === 'dCat') update(id, { category: e.target.value });
+  if (e.target.id === 'dCat') update(id, { category: e.target.value, categoryEdited: true });
   if (e.target.id === 'dPiece') update(id, { piece: e.target.value || null });
   if (e.target.id === 'dSize') update(id, { size: e.target.value });
   if (e.target.id === 'dTryImg') update(id, { tryonImage: e.target.value.trim() || null });
@@ -847,6 +847,39 @@ api.on('db:changed', (d) => { db = d; render(); });
 api.on('toast', (t) => toast(t.text, t.type));
 api.on('checking', (on) => { $('#checkBtn').classList.toggle('is-checking', on); $('#checkBtn').disabled = on; $('#checkBtn .lbl').textContent = on ? 'Vérification…' : 'Vérifier les prix'; });
 api.on('focus-item', (id) => { switchView('wishlist'); openDrawer(id); });
+// Synchronisation avec l'iPhone (app PC)
+function renderCloud(st) {
+  const box = $('#cloudBox');
+  if (!box || !st) return;
+  if (!st.connected) {
+    box.innerHTML = `<div><strong>Synchronisation avec l'iPhone</strong><span>Connecte-toi pour retrouver ta wishlist sur ton iPhone (${esc(st.appUrl.replace('https://', ''))}). Utilise le même compte sur les deux appareils.</span></div>
+      <form class="cloud-form" id="cloudForm"><input type="email" name="email" placeholder="Email" autocomplete="email" required /><input type="password" name="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="current-password" minlength="6" required /></form>
+      <div class="cloud-actions"><button class="btn-ink" id="cloudLogin">Se connecter</button><button class="btn-ghost" id="cloudSignup">Créer mon compte</button><p class="cloud-msg" id="cloudMsg"></p></div>`;
+    const go = async (mode) => {
+      const f = $('#cloudForm'), email = f.email.value.trim(), pw = f.password.value;
+      if (!email || pw.length < 6) { $('#cloudMsg').textContent = 'Saisis ton email et un mot de passe de 6 caractères minimum.'; return; }
+      $('#cloudMsg').textContent = mode === 'signup' ? 'Création du compte…' : 'Connexion…';
+      const r = await api.cloudLogin(email, pw, mode);
+      $('#cloudMsg').textContent = r.ok ? (r.message || '') : r.error;
+    };
+    $('#cloudLogin').onclick = () => go('login');
+    $('#cloudSignup').onclick = () => go('signup');
+    $('#cloudForm').onsubmit = (e) => { e.preventDefault(); go('login'); };
+    return;
+  }
+  const label = { ok: `synchronisé ${ago(st.at)}`, sync: 'synchronisation…', error: `erreur : ${st.error}`, idle: 'connecté' }[st.state] || '';
+  const prev = $('#cloudState');
+  if (prev && $('#cloudSyncNow')) { prev.innerHTML = `<i class="cloud-dot ${st.state}"></i>${esc(label)}`; return; }
+  box.innerHTML = `<div><strong>Synchronisation avec l'iPhone</strong><span>Compte ${esc(st.email)} · <b id="cloudState"><i class="cloud-dot ${st.state}"></i>${esc(label)}</b></span></div>
+    <div class="cloud-actions"><button class="btn-ghost" id="cloudSyncNow">Synchroniser maintenant</button><button class="btn-ghost" data-ext="${esc(st.appUrl)}">Ouvrir la version iPhone</button><button class="btn-ghost" id="cloudLogout">Se déconnecter</button></div>`;
+  $('#cloudSyncNow').onclick = async () => renderCloud(await api.cloudSync());
+  $('#cloudLogout').onclick = async () => renderCloud(await api.cloudLogout());
+}
+if (api.cloudStatus) {
+  api.cloudStatus().then(renderCloud);
+  api.on('cloud:status', (st) => { if (!st.connected || !$('#cloudSyncNow')) renderCloud(st); else renderCloud(st); });
+}
+
 // Mises à jour
 function renderUpdate(u) {
   if (!u) return;

@@ -4,6 +4,7 @@ const fs = require('fs');
 const { fetchProduct } = require('./scraper');
 const { tryOn, download } = require('./tryon');
 const { autoUpdater } = require('electron-updater');
+const cloud = require('./cloud');
 
 app.setAppUserModelId('fr.jeremy.wishy'); // nécessaire pour les notifications Windows
 
@@ -32,12 +33,26 @@ function load() {
   }
 }
 let db = null;
-function save() {
+function writeDb() {
   const f = DATA_FILE();
   fs.mkdirSync(path.dirname(f), { recursive: true });
   fs.writeFileSync(f + '.tmp', JSON.stringify(db, null, 2));
   fs.renameSync(f + '.tmp', f);
+}
+function save({ settings = false } = {}) {
+  writeDb();
   if (win && !win.isDestroyed()) win.webContents.send('db:changed', db);
+  cloud.schedule({ settings });
+}
+// Après une synchronisation : on enregistre ; si des données sont arrivées du cloud, on rafraîchit l'écran
+// et on complète les fiches ajoutées depuis l'iPhone que le cloud n'a pas réussi à lire.
+async function afterSync(applied) {
+  writeDb();
+  if (!applied) return;
+  if (win && !win.isDestroyed()) win.webContents.send('db:changed', db);
+  const pending = db.items.filter((i) => i.needsFetch && i.status === 'wish');
+  for (const it of pending) { await checkItem(it); await sleep(800); }
+  if (pending.length) save();
 }
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -147,6 +162,13 @@ function notifyDrop(item, oldP, newP, where) {
 async function checkItem(item) {
   const now = new Date().toISOString();
   const info = await fetchProduct(item.url);
+  if (info.ok && item.needsFetch) {
+    // article ajouté depuis l'iPhone dont la fiche n'a pas pu être lue dans le cloud
+    if (!item.titleEdited && info.title) item.title = info.title;
+    if (info.store) item.store = info.store;
+    if (!item.categoryEdited && info.category && info.category !== 'autre') item.category = info.category;
+    if (info.ok) delete item.needsFetch;
+  }
   if (info.ok && info.price) {
     const old = item.price;
     if (!item.image && info.image) item.image = info.image;
@@ -156,7 +178,7 @@ async function checkItem(item) {
     } else if (!old && item.targetPrice && info.price <= item.targetPrice) {
       notifyDrop(item, info.price, info.price, item.store);
     }
-    if (old !== info.price) item.history.push({ d: now, p: info.price });
+    if (old !== info.price) (item.history = item.history || []).push({ d: now, p: info.price });
     item.price = info.price;
     item.fetchError = null;
   } else if (!item.price) {
@@ -236,6 +258,10 @@ function setupUpdater() {
 // ---------- IPC ----------
 function registerIpc() {
   ipcMain.handle('db:get', () => db);
+  ipcMain.handle('cloud:status', () => cloud.status());
+  ipcMain.handle('cloud:login', (_, email, password, mode) => cloud.login(email, password, mode));
+  ipcMain.handle('cloud:logout', () => cloud.logout());
+  ipcMain.handle('cloud:sync', async () => { await cloud.syncNow(); return cloud.status(); });
   ipcMain.handle('update:get', () => updateState);
   ipcMain.handle('update:check', async () => {
     if (updateState.status === 'unsupported') return updateState;
@@ -295,7 +321,7 @@ function registerIpc() {
     if ('alwaysOnTop' in patch) win.setAlwaysOnTop(!!patch.alwaysOnTop);
     if ('autostart' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.autostart, args: ['--hidden'] });
     if ('checkHours' in patch) scheduleChecks();
-    save();
+    save({ settings: 'monthlyBudget' in patch || 'hfToken' in patch });
     return db.settings;
   });
   ipcMain.handle('data:import', (_, data) => { if (data && Array.isArray(data.items)) { db = { ...DEFAULT, ...data }; save(); } return db; });
@@ -385,6 +411,12 @@ if (!app.requestSingleInstanceLock()) {
     globalShortcut.register('CommandOrControl+Alt+Space', toggleWindow);
     scheduleChecks();
     setupUpdater();
+    cloud.init({
+      dir: app.getPath('userData'),
+      getDb: () => db,
+      persist: (applied) => afterSync(applied),
+      onStatus: (st) => win && !win.isDestroyed() && win.webContents.send('cloud:status', st),
+    }).catch((e) => console.error('Synchronisation indisponible', e));
     setTimeout(() => checkPrices(false), 20000); // 1re vérif 20 s après le lancement
   });
   app.on('before-quit', () => { quitting = true; });

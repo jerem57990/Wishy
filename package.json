@@ -1,7 +1,7 @@
 {
   "name": "wishy",
   "productName": "Wishy",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Widget wishlist avec suivi des prix et dashboard des dépenses",
   "main": "main.js",
   "author": "Jérémy",
@@ -13,11 +13,14 @@
   },
   "dependencies": {
     "@gradio/client": "^1.19.1",
-    "electron-updater": "^6.8.11"
+    "@supabase/supabase-js": "^2.118.0",
+    "electron-updater": "^6.8.11",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.2"
   },
   "build": {
     "appId": "fr.jeremy.wishy",
@@ -27,6 +30,9 @@
       "preload.js",
       "scraper.js",
       "tryon.js",
+      "cloud.js",
+      "cloud-config.json",
+      "sync-core.mjs",
       "src/**/*",
       "assets/**/*",
       "package.json"
