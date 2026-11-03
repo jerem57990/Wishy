@@ -111,4 +111,15 @@ async function syncNow() {
   }
 }
 
-module.exports = { init, login, logout, schedule, syncNow, status: () => ({ ...status }) };
+// Envoie un modèle 3D dans le stockage Supabase ; renvoie son URL publique (ou null si non connecté)
+async function uploadModel(itemId, buffer) {
+  if (!status.connected || !sb) return null;
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return null;
+  const p = `${session.user.id}/${itemId}.glb`;
+  const { error } = await sb.storage.from('models').upload(p, buffer, { upsert: true, contentType: 'model/gltf-binary' });
+  if (error) throw new Error(`Enregistrement du modèle impossible : ${error.message}`);
+  return sb.storage.from('models').getPublicUrl(p).data.publicUrl + `?v=${Date.now().toString(36)}`;
+}
+
+module.exports = { init, login, logout, schedule, syncNow, uploadModel, status: () => ({ ...status }) };

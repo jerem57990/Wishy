@@ -32,6 +32,10 @@ const past = [
 ];
 for (const [t, c, p, d] of past) db.purchases.push({ id: uid(), itemId: null, title: t, category: c, price: p, date: iso(d), store: 'boutique' });
 
+// Démo : ?demo3d=<chemin.glb> donne un modèle 3D à la lampe (tests visuels)
+const demo3d = new URLSearchParams(location.search).get('demo3d');
+if (demo3d) Object.assign(db.items.find((i) => i.id === 'a7'), { model3d: demo3d, title: 'Knight Cap — Rincon', category: 'vetements', image: null });
+
 const listeners = {};
 const emit = (ch, data) => (listeners[ch] || []).forEach((f) => f(data));
 const clone = () => structuredClone(db);
@@ -46,6 +50,11 @@ export default {
     return { ok: true, item };
   },
   updateItem: async (id, patch) => { const it = db.items.find((i) => i.id === id); if (patch.price != null) it.history.push({ d: new Date().toISOString(), p: patch.price }); Object.assign(it, patch); for (const p of db.purchases) if (p.itemId === id && patch.title) p.title = patch.title; return { ok: true }; },
+  make3D: async (id) => {
+    for (const [t, p] of [['Connexion au modèle 3D…', 5], ["Détourage de l'article…", 15], ['Sculpture en 3D…', 55], ['Téléchargement du modèle…', 90]]) { emit('3d:progress', { text: t, pct: p }); await new Promise((r) => setTimeout(r, 300)); }
+    return { ok: false, error: "Mode démo : la création 3D ne fonctionne que dans l'application." };
+  },
+  modelData: async () => null,
   setLists: async (lists) => { db.lists = lists; return { ok: true }; },
   deleteItem: async (id) => { db.items = db.items.filter((i) => i.id !== id); return { ok: true }; },
   refreshItem: async () => ({ ok: true }),

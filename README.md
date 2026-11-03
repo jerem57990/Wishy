@@ -61,6 +61,12 @@ Bon à savoir :
 - **Partage** : depuis une liste, **Partager** crée un lien public en lecture seule (`…/Wishy/share.html?l=…`). La personne voit les articles, les liens, les tailles et tes notes, sans pouvoir rien modifier ; la page suit tes changements. **Ne plus partager** désactive le lien. Nécessite la synchronisation (compte Wishy).
 - **Note** : chaque article a un champ libre (couleur, coupe, idée cadeau…) repris dans l'export et le partage.
 
+## Articles en 3D et réalité augmentée
+
+Dans la fiche d'un article, **Créer en 3D** transforme sa photo en objet 3D avec le modèle gratuit TRELLIS (Microsoft, sur Hugging Face) : compte 30 s à 1 min. Le modèle apparaît à la place de la photo (bascule 3D / Photo), se fait tourner du doigt, et **Voir chez moi** le pose dans ta pièce en réalité augmentée (AR Quick Look sur iPhone, Scene Viewer sur Android). Les modèles sont stockés dans Supabase (bucket `models`) et visibles sur tous tes appareils et sur les listes partagées. Résultats excellents sur les chaussures, casquettes, sacs, flacons et objets ; plus approximatifs sur les vêtements photographiés à plat.
+
+Sur la page d'une liste partagée, un paquet cadeau 3D se déballe à la première ouverture, puis les articles apparaissent ; ceux qui ont un modèle 3D ont un bouton **Voir en 3D**.
+
 ## Couleurs et combos Pantone
 
 Pour chaque vêtement, Wishy lit la couleur sur la photo et l'associe à la référence **Pantone TCX** la plus proche (le nuancier textile, 2 300 teintes). Dans la fiche de l'article :

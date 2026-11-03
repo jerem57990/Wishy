@@ -1,7 +1,7 @@
 {
   "name": "wishy",
   "productName": "Wishy",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Widget wishlist avec suivi des prix et dashboard des dépenses",
   "main": "main.js",
   "author": "Jérémy",
@@ -36,7 +36,8 @@
       "sync-core.mjs",
       "src/**/*",
       "assets/**/*",
-      "package.json"
+      "package.json",
+      "model3d-core.mjs"
     ],
     "win": {
       "target": [

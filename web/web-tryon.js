@@ -24,12 +24,15 @@ function friendly(err) {
   return m.slice(0, 220) || "L'essayage a échoué.";
 }
 
+// Lecture des événements sans fermer le flux (un « for await » peut rester bloqué à la sortie)
 async function run(client, endpoint, data, onStatus) {
-  for await (const ev of client.submit(endpoint, data)) {
+  const it = client.submit(endpoint, data)[Symbol.asyncIterator]();
+  for (;;) {
+    const { value: ev, done } = await it.next();
+    if (done) throw new Error('Aucun résultat reçu');
     if (ev.type === 'status') { if (ev.stage === 'error') throw new Error(ev.message || 'Erreur du modèle'); onStatus?.(ev); }
     if (ev.type === 'data') return ev.data;
   }
-  throw new Error('Aucun résultat reçu');
 }
 
 export async function tryOnWeb(personDataUrl, outfit, token, progress = () => {}) {

@@ -3,6 +3,7 @@
 import { createClient } from './vendor/supabase.js';
 import { emptyMeta, markChanges, push, pull, syncSettings } from './sync-core.mjs';
 import { tryOnWeb } from './web-tryon.js';
+import { generateGLB } from './model3d-core.mjs';
 import CONFIG from './config.js';
 
 export const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
@@ -199,6 +200,29 @@ const api = {
     try { const r = await invoke('fetch-product', { image: url }); return r.ok ? r.dataUrl : null; } catch { return null; }
   },
   minimize() {}, hide() {}, maximize() {},
+
+  // 3D : photo → modèle GLB (TRELLIS), stocké dans Supabase Storage pour tous les appareils et le partage
+  async make3D(id) {
+    const it = db.items.find((i) => i.id === id);
+    if (!it) return { ok: false, error: 'Article introuvable' };
+    try {
+      const src = await api.imageData(it.tryonImage || it.image);
+      if (!src) throw new Error("La photo de l'article est inaccessible");
+      const photo = await (await fetch(src)).blob();
+      const gradio = await import('./vendor/gradio.js');
+      const glb = await generateGLB(gradio, photo, db.settings.hfToken, (text, pct) => emit('3d:progress', { text, pct: Math.round(pct) }));
+      const { data: { session } } = await supabase.auth.getSession();
+      const path = `${session.user.id}/${id}.glb`;
+      const up = await supabase.storage.from('models').upload(path, new Blob([glb], { type: 'model/gltf-binary' }), { upsert: true, contentType: 'model/gltf-binary' });
+      if (up.error) throw new Error(`Enregistrement impossible : ${up.error.message}`);
+      const url = supabase.storage.from('models').getPublicUrl(path).data.publicUrl + `?v=${Date.now().toString(36)}`;
+      it.model3d = url;
+      it.model3dAt = new Date().toISOString();
+      save({ silent: true });
+      return { ok: true, url };
+    } catch (e) { return { ok: false, error: e.message }; }
+  },
+  modelData: async () => null,
 
   // Cabine
   async setPhoto(dataUrl) { await idbSet('person', dataUrl); db.cabine = { ...(db.cabine || {}), hasPhoto: true }; persist(); return { ok: true }; },

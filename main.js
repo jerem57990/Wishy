@@ -347,6 +347,33 @@ function registerIpc() {
   const toDataUrl = (file, mime) => (fs.existsSync(file) ? `data:${mime};base64,${fs.readFileSync(file).toString('base64')}` : null);
   let tryingOn = false;
 
+  // ---------- 3D ----------
+  const modelFile = (id) => { const d = path.join(app.getPath('userData'), 'models'); fs.mkdirSync(d, { recursive: true }); return path.join(d, id + '.glb'); };
+  let making3d = false;
+  ipcMain.handle('item:make3d', async (_, id) => {
+    const it = db.items.find((i) => i.id === id);
+    if (!it) return { ok: false, error: 'Article introuvable' };
+    if (making3d) return { ok: false, error: 'Une création 3D est déjà en cours' };
+    making3d = true;
+    try {
+      const src = it.tryonImage || it.image;
+      if (!src) throw new Error("Cet article n'a pas de photo");
+      const photo = new Blob([await download(src)]);
+      const lib = await import('@gradio/client');
+      const { generateGLB } = await import('./model3d-core.mjs');
+      const glb = Buffer.from(await generateGLB(lib, photo, db.settings.hfToken, (text, pct) => win && win.webContents.send('3d:progress', { text, pct: Math.round(pct) })));
+      const url = await cloud.uploadModel(id, glb).catch(() => null);
+      if (url) it.model3d = url;
+      else { fs.writeFileSync(modelFile(id), glb); it.model3d = 'local:' + id; }
+      it.model3dAt = new Date().toISOString();
+      save();
+      return { ok: true, url: it.model3d };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    } finally { making3d = false; }
+  });
+  ipcMain.handle('model:data', (_, id) => { try { const b = fs.readFileSync(modelFile(id)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); } catch { return null; } });
+
   ipcMain.handle('cabine:setPhoto', (_, dataUrl) => {
     const b64 = String(dataUrl).split(',')[1];
     if (!b64) return { ok: false };

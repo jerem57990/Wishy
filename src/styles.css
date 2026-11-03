@@ -352,6 +352,25 @@ select { background: var(--paper); border: 0; border-radius: 99px; padding: 8px 
 .look:hover .x, .look .x:focus-visible { opacity: 1; }
 .look .x:hover { background: var(--berry); color: #fff; }
 
+/* ---------- 3D ---------- */
+.d-img { position: relative; }
+.d-img.is3d { height: 340px; padding: 0; background: radial-gradient(circle at 50% 35%, #fffbe6, var(--cloud) 75%); }
+.v3d { position: absolute; inset: 0; cursor: grab; touch-action: none; }
+.v3d canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.v3d-load { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; font-weight: 600; color: var(--muted); }
+.v3d-tools { position: absolute; left: 12px; right: 56px; bottom: 12px; display: flex; gap: 8px; align-items: center; justify-content: space-between; z-index: 2; }
+.seg { display: inline-flex; background: rgba(255, 255, 255, .92); border-radius: 99px; padding: 3px; box-shadow: 0 1px 4px rgba(23, 23, 28, .12); }
+.seg button { padding: 5px 12px; border-radius: 99px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.seg button.on { background: var(--ink); color: #fff; }
+.ar-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--sun); color: var(--ink); border-radius: 99px; padding: 8px 14px; font-weight: 700; font-size: 14px; box-shadow: 0 6px 18px -6px rgba(23, 23, 28, .4); }
+.ar-btn svg { width: 18px; height: 18px; }
+.make3d { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; align-items: center; background: linear-gradient(135deg, var(--sun-soft), #fff 70%); border-radius: 16px; padding: 14px 16px; }
+.make3d h4 { margin: 0 0 2px; }
+.make3d p { margin: 0; font-size: 13px; }
+.make3d .tryon-progress { grid-column: 1 / -1; margin: 4px 0 0; }
+.pill.p3d { background: var(--ink); color: var(--sun); }
+.linkish { display: block; margin-top: 18px; font-weight: 600; font-size: 14px; color: var(--ink-2); text-decoration: underline; }
+
 /* ---------- Puces Pantone ---------- */
 .pchips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; margin-bottom: 4px; }
 .pchip {

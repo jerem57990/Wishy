@@ -1,5 +1,6 @@
 // Page publique d'une liste partagée (lecture seule).
 import CONFIG from './config.js';
+import { playGift } from './gift3d.js';
 
 const CATS = {
   vetements: ['Vêtements', '👕'], jeux: ['Jeux vidéo', '🎮'], tech: ['Tech', '💻'], maison: ['Maison', '🛋️'],
@@ -26,6 +27,7 @@ function card(it) {
       <p class="sh-price">${eur(price)}${pct ? ` <s>${eur(ref)}</s> <span class="pill drop">−${pct} %</span>` : ''}</p>
       ${facts.length ? `<p class="sh-facts">${facts.join(' · ')}</p>` : ''}
       ${it.notes ? `<p class="sh-note">${esc(it.notes)}</p>` : ''}
+      ${it.model3d ? `<button class="sh-3d" data-m3d="${esc(it.model3d)}" data-title="${esc(it.title)}"><b>3D</b> Voir en 3D</button>` : ''}
       <a class="btn-sun sh-go" href="${esc(safeUrl(where.url))}" target="_blank" rel="noopener noreferrer">Voir chez ${esc(where.store || 'la boutique')}</a>
     </div>
   </li>`;
@@ -42,6 +44,29 @@ function render() {
 
 $('#shFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; render(); } });
 
+// Visionneuse 3D (et réalité augmentée sur iPhone / Android)
+let viewer = null, current = null;
+const AR_OK = /iP(hone|ad|od)|Android/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+$('#shGrid').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-m3d]');
+  if (!b) return;
+  current = { src: b.dataset.m3d, title: b.dataset.title };
+  const dlg = $('#sh3d');
+  $('#sh3dTitle').textContent = current.title;
+  $('#sh3dAr').hidden = !AR_OK;
+  dlg.showModal();
+  const { mountViewer } = await import('./viewer3d.js');
+  viewer?.dispose();
+  $('#sh3dStage').innerHTML = '';
+  viewer = await mountViewer($('#sh3dStage'), current.src);
+});
+$('#sh3dAr').addEventListener('click', async () => {
+  const { openAR } = await import('./viewer3d.js');
+  await openAR({ src: current.src, publicUrl: current.src, key: current.src, title: current.title });
+});
+$('#sh3d').addEventListener('close', () => { viewer?.dispose(); viewer = null; });
+$('#sh3dClose').addEventListener('click', () => $('#sh3d').close());
+
 const token = new URLSearchParams(location.search).get('l');
 try {
   if (!token) throw new Error('Lien de partage incomplet.');
@@ -54,6 +79,11 @@ try {
   const total = items.filter((i) => i.status !== 'bought').reduce((s, i) => s + (Math.min(i.price || Infinity, i.best?.price || Infinity) || 0), 0);
   $('#shMeta').textContent = `${items.length} article${items.length > 1 ? 's' : ''} · ${eur(isFinite(total) ? total : 0)} · mise à jour le ${new Date(data.updatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
   render();
+  // ouverture du cadeau, une fois par liste et par appareil
+  const seenKey = `wishy-gift-${token}`;
+  let seen = false;
+  try { seen = localStorage.getItem(seenKey) === '1'; localStorage.setItem(seenKey, '1'); } catch { /* navigation privée */ }
+  if (!seen && items.length) { document.body.classList.add('gifting'); playGift({ title: data.name, onDone: () => document.body.classList.remove('gifting') }); }
   if (!items.length) { $('#shEmpty').hidden = false; $('#shEmpty').textContent = 'Cette liste est vide pour le moment.'; }
 } catch (e) {
   $('#shTitle').textContent = 'Liste indisponible';

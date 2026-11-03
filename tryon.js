@@ -44,16 +44,15 @@ function friendly(err) {
 }
 
 // Lance un appel en suivant la file d'attente et en remontant la progression
+// Lecture des événements sans fermer le flux (un « for await » peut rester bloqué à la sortie)
 async function run(client, endpoint, data, onStatus) {
-  const job = client.submit(endpoint, data);
-  for await (const ev of job) {
-    if (ev.type === 'status') {
-      if (ev.stage === 'error') throw new Error(ev.message || 'Erreur du modèle');
-      onStatus?.(ev);
-    }
+  const it = client.submit(endpoint, data)[Symbol.asyncIterator]();
+  for (;;) {
+    const { value: ev, done } = await it.next();
+    if (done) throw new Error('Aucun résultat reçu');
+    if (ev.type === 'status') { if (ev.stage === 'error') throw new Error(ev.message || 'Erreur du modèle'); onStatus?.(ev); }
     if (ev.type === 'data') return ev.data;
   }
-  throw new Error('Aucun résultat reçu');
 }
 
 async function leffa(person, garment, kind, token, onStatus) {

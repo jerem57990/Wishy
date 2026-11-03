@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('api', {
   getUpdate: () => ipcRenderer.invoke('update:get'),
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  make3D: (id) => ipcRenderer.invoke('item:make3d', id),
+  modelData: (id) => ipcRenderer.invoke('model:data', id),
   setPhoto: (dataUrl) => ipcRenderer.invoke('cabine:setPhoto', dataUrl),
   getPhoto: () => ipcRenderer.invoke('cabine:photo'),
   tryOn: (sel) => ipcRenderer.invoke('cabine:tryon', sel),
@@ -32,7 +34,7 @@ contextBridge.exposeInMainWorld('api', {
   hide: () => ipcRenderer.send('win:hide'),
   maximize: () => ipcRenderer.send('win:maximize'),
   on: (channel, cb) => {
-    const allowed = ['db:changed', 'toast', 'checking', 'focus-item', 'tryon:progress', 'update:status', 'cloud:status'];
+    const allowed = ['db:changed', 'toast', 'checking', 'focus-item', 'tryon:progress', 'update:status', 'cloud:status', '3d:progress'];
     if (allowed.includes(channel)) ipcRenderer.on(channel, (_, data) => cb(data));
   },
 });
