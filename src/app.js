@@ -241,7 +241,6 @@ function render() {
   renderLooks();
   renderSettings();
   if (ui.style === 'dressing' && $('#view-cabine').classList.contains('active')) initWardrobe();
-  if (ui.style === 'couleurs' && $('#view-cabine').classList.contains('active')) initSphere();
   if (ui.openId) openDrawer(ui.openId, true);
 }
 
@@ -597,13 +596,12 @@ async function initCabine() {
 }
 
 
-// ---------- Style : onglets Cabine IA / Dressing 3D / Couleurs 3D ----------
+// ---------- Style : onglets Cabine IA / Dressing 3D ----------
 const STYLE_TABS = {
   cabine: ["Cabine d'essayage", "Choisis un haut et un bas de ta wishlist : l'IA les enfile sur ta photo, avec leur vraie coupe et leur vraie matière."],
   dressing: ['Dressing 3D', 'Ta wishlist sur une penderie. Compose ta tenue dans le miroir, puis essaie-la avec l\'IA.'],
-  couleurs: ['Couleurs 3D', 'Tes vêtements placés sur la sphère des couleurs Pantone. Touche-en un pour voir ceux qui vont avec.'],
 };
-let wardrobe = null, sphere = null;
+let wardrobe = null;
 const styleItems = () => db.items.filter((i) => i.status === 'wish' && isClothing(i));
 const proxied = async (it) => { const src = it.tryonImage || it.image; if (!src) return null; if (src.startsWith('data:') || isDemo) return src; return api.imageData(src).catch(() => null); };
 async function withHex(list) {
@@ -615,11 +613,9 @@ function switchStyle(tab) {
   $$('#styleTabs button').forEach((b) => b.classList.toggle('on', b.dataset.style === tab));
   $('#paneCabine').hidden = tab !== 'cabine';
   $('#paneDressing').hidden = tab !== 'dressing';
-  $('#paneCouleurs').hidden = tab !== 'couleurs';
   $('#styleTitle').textContent = STYLE_TABS[tab][0];
   $('#styleSub').textContent = STYLE_TABS[tab][1];
   if (tab === 'dressing') initWardrobe();
-  if (tab === 'couleurs') initSphere();
 }
 async function initWardrobe() {
   renderMirror();
@@ -653,31 +649,6 @@ function renderMirror() {
   const v = hexes.length > 1 ? outfitVerdict(hexes) : null;
   $('#mirrorVerdict').innerHTML = v ? `<b>${v.level === 'top' ? 'Bel accord' : v.level === 'ok' ? 'Ça passe' : 'Risqué'}</b> · ${esc(v.label)}` : 'Envoie au moins un haut ou un bas dans le miroir.';
   $('#mirrorTry').disabled = !(o.top || o.bottom);
-}
-async function initSphere() {
-  const list = await withHex(styleItems().filter((i) => mainColor(i) || i.image));
-  try {
-    if (!sphere) {
-      const { createColorSphere } = await import('./colorsphere.js');
-      sphere = createColorSphere($('#sphere3d'), { harmony, imageData: (x) => proxied(x._it), onPick: renderSphereSide });
-    }
-    const sig = list.map((x) => x.id + x.hex).join();
-    if (sphere.sig !== sig) { sphere.sig = sig; await sphere.setItems(list); }
-  } catch (e) { console.warn(e); }
-  if (!list.length) $('#sphereSide').innerHTML = '<p class="muted">Ajoute des vêtements avec une photo : Wishy lit leur couleur et les place sur la sphère.</p>';
-}
-function renderSphereSide(sel) {
-  const box = $('#sphereSide');
-  if (!sel) {
-    box.innerHTML = '<h4>Comment lire la sphère</h4><p class="muted small">Le tour de la sphère suit les teintes, le haut les couleurs claires, le bas les foncées. Les couleurs neutres (noir, blanc, gris, beige, marine) sont près de l\'axe central : elles vont avec presque tout.</p><p class="muted small">Touche un vêtement pour allumer ceux qui s\'accordent avec lui.</p>';
-    return;
-  }
-  const it = sel.item._it, p = nearestPantone(sel.item.hex), sug = suggestions(sel.item.hex);
-  box.innerHTML = `<div class="ss-head">${thumbHTML(it)}<div><b>${esc(it.title)}</b><div class="pchips">${chipHTML(p, { size: 's', data: 'data-copy' })}</div></div></div>
-    <p class="d-sub"><strong>${sel.matches.length ? `${sel.matches.length} vêtement${sel.matches.length > 1 ? 's' : ''} assorti${sel.matches.length > 1 ? 's' : ''}` : 'Aucun accord fort dans ta wishlist'}</strong></p>
-    <ul class="matches">${sel.matches.slice(0, 6).map(({ item, h }) => `<li><button data-sphere="${item.id}">${thumbHTML(item._it)}<span><b>${esc(item.title)}</b><small><i style="background:${item.hex}"></i>${esc(h.label)}</small></span></button></li>`).join('')}</ul>
-    ${sug.families[0] ? `<p class="d-sub"><strong>${esc(sug.families[0].label)}</strong> · ${esc(sug.families[0].hint)}</p><div class="pchips">${sug.families[0].colors.slice(0, 4).map((c) => chipHTML(c, { size: 's', data: 'data-copy' })).join('')}</div>` : ''}
-    <div class="ss-actions"><button class="btn-ghost" data-sopen="${it.id}">Ouvrir la fiche</button>${pieceOf(it) ? `<button class="btn-ink" data-smirror="${it.id}">Au miroir</button>` : ''}</div>`;
 }
 
 // Redimensionne la photo (max 1024 px de haut) avant de l'enregistrer
@@ -1101,12 +1072,6 @@ $('#mirrorTry').addEventListener('click', async () => {
   renderStage();
   if (!cab.photo) { toast('Ajoute une photo de toi pour lancer l\'essayage', 'err'); return; }
   runTryOn();
-});
-$('#sphereSide').addEventListener('click', (e) => {
-  const s1 = e.target.closest('[data-sphere]'); if (s1) sphere?.selectById(s1.dataset.sphere);
-  const o = e.target.closest('[data-sopen]'); if (o) openDrawer(o.dataset.sopen);
-  const m = e.target.closest('[data-smirror]'); if (m) { toMirror(db.items.find((i) => i.id === m.dataset.smirror)); switchStyle('dressing'); }
-  const cp = e.target.closest('[data-copy]'); if (cp) navigator.clipboard?.writeText(cp.title.split(' — ')[0]).then(() => toast('Référence Pantone copiée'));
 });
 $('#piggyMotion').addEventListener('click', async () => {
   const { enableMotion } = await import('./touch.js');

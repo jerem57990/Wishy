@@ -79,9 +79,8 @@ body.web input, body.web select, body.web textarea { font-size: 16px; }
   body.web .cabine { grid-template-columns: 1fr; }
   body.web .style-tabs { align-self: stretch; display: flex; }
   body.web .style-tabs button { flex: 1; padding: 8px 6px; font-size: 13px; }
-  body.web .dressing, body.web .sphere-layout { grid-template-columns: 1fr; }
+  body.web .dressing { grid-template-columns: 1fr; }
   body.web .wd-panel .canvas-host { height: 330px; }
-  body.web .sphere-panel .canvas-host { height: 360px; }
   body.web .piggy .canvas-host { height: 230px; }
   body.web .mirror-glass { padding: 26px 10px 10px; border-radius: 60px 60px 18px 18px; }
   body.web .mirror-slots { flex-direction: row; }

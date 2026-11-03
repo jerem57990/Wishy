@@ -525,14 +525,6 @@ body.maxed .drawer { inset: 0; border-radius: 0; }
 .mslot .x { position: absolute; right: 6px; top: 6px; width: 24px; height: 24px; border-radius: 99px; font-size: 12px; color: var(--muted); }
 .mirror-foot p { margin: 0 0 8px; }
 
-.sphere-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; }
-.sphere-panel { padding: 8px; background: radial-gradient(circle at 50% 45%, #fff, #f3f4f8 70%); }
-.sphere-panel .canvas-host { height: 480px; }
-.sphere-side h4 { margin: 0 0 6px; font: 700 17px var(--font-display); }
-.ss-head { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
-.ss-head b { display: block; margin-bottom: 6px; line-height: 1.25; }
-.ss-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-
 .jersey-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .jersey-form .field, .scent .field { min-width: 0; }
 .jersey-form select { width: 100%; min-width: 0; }
@@ -562,9 +554,8 @@ body.maxed .drawer { inset: 0; border-radius: 0; }
 .cmp-cols small { color: var(--muted); font-size: 12px; }
 
 @media (max-width: 860px) {
-  .dressing, .sphere-layout { grid-template-columns: 1fr; }
+  .dressing { grid-template-columns: 1fr; }
   .wd-panel .canvas-host { height: 360px; }
-  .sphere-panel .canvas-host { height: 380px; }
   .jersey-wrap { grid-template-columns: 1fr; }
   .j3d { height: 280px; }
 }
@@ -596,7 +587,3 @@ body.maxed .drawer { inset: 0; border-radius: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-.sphere-side .matches button { width: 100%; min-width: 0; }
-.sphere-side .matches span { min-width: 0; }
-.sphere-side .matches b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sphere-side { overflow: hidden; }
