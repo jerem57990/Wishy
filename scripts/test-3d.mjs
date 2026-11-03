@@ -19,15 +19,18 @@ const pre = await step('détourage', app.predict('/preprocess_image', [handle_fi
 console.log('détourage ok', Math.round((Date.now() - t0) / 1000), 's', JSON.stringify(pre.data).slice(0, 160));
 const processed = await (await fetch(pre.data[0].url)).blob();
 const job = app.submit('/generate_and_extract_glb', [handle_file(processed), [], false, 0, 7.5, 12, 3, 12, 'stochastic', 0.95, 1024]);
-for await (const ev of job) {
+const it = job[Symbol.asyncIterator]();
+for (;;) {
+  const { value: ev, done } = await it.next();
+  if (done) break;
   if (ev.type === 'status') console.log('statut', ev.stage, ev.position ?? '', ev.message ?? '');
   if (ev.type === 'data') {
     console.log('sorties', JSON.stringify(ev.data).slice(0, 300));
-    const glb = ev.data[2]?.url || ev.data[3]?.url;
+    const glb = ev.data.map((d) => d?.url).find((u) => /\.glb/i.test(u || ''));
     const buf = Buffer.from(await (await fetch(glb)).arrayBuffer());
     fs.writeFileSync('model.glb', buf);
     console.log('GLB', buf.length, 'octets, magic', buf.subarray(0, 4).toString(), 'en', Math.round((Date.now() - t0) / 1000), 's');
-    break;
+    process.exit(0);
   }
 }
 process.exit(0);
