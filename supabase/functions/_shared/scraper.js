@@ -10,7 +10,7 @@ const UA =
 const CATEGORY_RULES = [
   { cat: 'parfums', domains: ['sephora', 'nocibe', 'marionnaud', 'notino', 'douglas', 'scento', 'origines-parfums', 'parfumdo', 'beautysuccess', 'lookfantastic', 'fragrantica', 'jomashop', 'guerlain', 'diptyque', 'byredo', 'creedfragrances'], words: ['parfum', 'eau de toilette', 'eau de cologne', 'cologne', 'edp', 'edt', 'extrait', 'fragrance', 'elixir', 'élixir', 'vaporisateur', 'parfum ml'] },
   { cat: 'jeux', domains: ['instant-gaming', 'micromania', 'steampowered', 'store.steampowered', 'playstation', 'nintendo', 'xbox', 'epicgames', 'gog.com', 'eneba'], words: ['ps5', 'ps4', 'xbox', 'switch', 'nintendo', 'jeu vidéo', 'steam', 'playstation', 'manette', 'edition', 'game'] },
-  { cat: 'vetements', domains: ['zalando', 'asos', 'nike', 'adidas', 'zara', 'hm.com', 'uniqlo', 'courir', 'jdsports', 'footlocker', 'snipes', 'vinted', 'shein', 'celio', 'jules', 'kiabi', 'sezane', 'lacoste', 'decathlon'], words: ['t-shirt', 'tee', 'pull', 'sweat', 'hoodie', 'veste', 'jean', 'pantalon', 'chemise', 'sneakers', 'baskets', 'chaussures', 'manteau', 'short', 'polo', 'jogging', 'doudoune', 'maillot', 'casquette'] },
+  { cat: 'vetements', domains: ['zalando', 'asos', 'nike', 'adidas', 'zara', 'hm.com', 'uniqlo', 'courir', 'jdsports', 'footlocker', 'snipes', 'vinted', 'shein', 'celio', 'jules', 'kiabi', 'sezane', 'lacoste', 'decathlon'], words: ['t-shirt', 'tee', 'pull', 'sweat', 'hoodie', 'veste', 'jean', 'pantalon', 'chemise', 'sneakers', 'baskets', 'chaussures', 'manteau', 'short', 'polo', 'jogging', 'doudoune', 'maillot', 'casquette', 'jersey', 'soccer', 'trikot', 'camiseta'] },
   { cat: 'tech', domains: ['ldlc', 'materiel.net', 'topachat', 'boulanger', 'darty', 'apple.com', 'samsung', 'backmarket', 'rueducommerce'], words: ['iphone', 'samsung', 'écran', 'ecran', 'casque', 'clavier', 'souris', 'pc ', 'laptop', 'ordinateur', 'ssd', 'rtx', 'airpods', 'tv ', 'montre connectée', 'enceinte'] },
   { cat: 'maison', domains: ['ikea', 'maisonsdumonde', 'leroymerlin', 'castorama', 'conforama', 'but.fr'], words: ['lampe', 'canapé', 'table', 'chaise', 'déco', 'coussin', 'tapis', 'cuisine'] },
   { cat: 'livres', domains: ['decitre', 'cultura', 'leslibraires'], words: ['livre', 'roman', 'manga', 'tome', 'broché', 'bd '] },
@@ -195,7 +195,7 @@ function extract(html, url) {
 }
 
 // ---------- Options du produit (taille, badge/patch, flocage…) ----------
-const CJK = /[　-鿿＀-￯]/;
+const CJK = /[\u3000-\u9fff\uff00-\uffef]/;
 // retire les précisions en chinois entre parenthèses : "Allianz (左袖广告)" → "Allianz"
 const cleanLabel = (t) => decode(String(t || '')).replace(/\s*[（(][^()（）]*[)）]/g, (m) => (CJK.test(m) ? '' : m)).replace(/\s+/g, ' ').trim();
 
