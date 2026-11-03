@@ -41,10 +41,19 @@ export async function generateGLB(lib, image, token, progress = () => {}) {
     const pre = await run(app.submit('/preprocess_image', [lib.handle_file(image)]), () => {});
     const processed = await (await fetch(pre[0].url || pre[0])).blob();
     progress('Sculpture en 3D…', 25);
-    const data = await run(app.submit('/generate_and_extract_glb', [lib.handle_file(processed), [], false, Math.floor(Math.random() * 1e6), 7.5, 12, 3, 12, 'stochastic', 0.95, 1024]), (s) => {
-      if (s.position != null && s.position > 0) progress(`File d'attente : position ${s.position + 1}${s.eta ? ` (~${Math.ceil(s.eta)} s)` : ''}`, 25);
-      else progress('Sculpture en 3D…', 55);
-    });
+    // La génération n'envoie presque pas d'étapes : on fait avancer la barre doucement
+    // (25 → 88 % en ~90 s) et on abandonne au bout de 5 minutes.
+    let pct = 25, queued = false;
+    const tick = setInterval(() => { if (!queued) { pct += (88 - pct) * 0.04; progress('Sculpture en 3D…', pct); } }, 1500);
+    let timer;
+    const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('Le modèle 3D met trop de temps à répondre (serveur gratuit saturé). Réessaie dans quelques minutes.')), 300000); });
+    let data;
+    try {
+      data = await Promise.race([timeout, run(app.submit('/generate_and_extract_glb', [lib.handle_file(processed), [], false, Math.floor(Math.random() * 1e6), 7.5, 12, 3, 12, 'stochastic', 0.95, 1024]), (s) => {
+        queued = s.position != null && s.position > 0;
+        if (queued) progress(`File d'attente : position ${s.position + 1}${s.eta ? ` (~${Math.ceil(s.eta)} s)` : ''}`, 25);
+      })]);
+    } finally { clearInterval(tick); clearTimeout(timer); }
     const glbUrl = data.map((d) => d?.url).find((u) => /\.glb/i.test(u || ''));
     if (!glbUrl) throw new Error("Le modèle n'a pas renvoyé de fichier 3D");
     progress('Téléchargement du modèle…', 90);

@@ -3,7 +3,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { cors, json } from '../_shared/http.js';
 
-const PUBLIC_FIELDS = ['title', 'image', 'price', 'listPrice', 'currency', 'store', 'brand', 'url', 'size', 'notes', 'category', 'priority', 'status', 'piece', 'model3d'];
+const PUBLIC_FIELDS = ['title', 'image', 'price', 'listPrice', 'currency', 'store', 'brand', 'url', 'size', 'notes', 'category', 'priority', 'status', 'piece', 'model3d', 'jersey', 'scent'];
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });

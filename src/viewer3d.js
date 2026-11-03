@@ -66,7 +66,7 @@ export async function mountViewer(host, src, { background = null } = {}) {
   controls.autoRotateSpeed = 1.6;
   renderer.domElement.addEventListener('pointerdown', () => (controls.autoRotate = false));
 
-  const model = await loadModel(src);
+  const model = src?.isObject3D ? src : await loadModel(src);
   model.scale.multiplyScalar(0.001);
   scene.add(model);
   const targetScale = model.scale.x * 1000;
@@ -103,7 +103,7 @@ export async function prepareUSDZ(src, key) {
   if (usdzCache.has(key)) return usdzCache.get(key);
   const p = (async () => {
     const { USDZExporter } = await import('./vendor/USDZExporter.js');
-    const model = await loadModel(src);
+    const model = src?.isObject3D ? src : await loadModel(src);
     const scene = new THREE.Scene();
     scene.add(model);
     // échelle réelle approximative : ~30 cm de haut

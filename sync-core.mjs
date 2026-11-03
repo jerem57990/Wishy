@@ -3,13 +3,15 @@
 // Principe : chaque article / achat est une ligne { id, data, deleted, updated_at }.
 // - On détecte les changements locaux en comparant une empreinte de chaque ligne.
 // - On envoie les lignes modifiées (et les suppressions) ; on récupère celles modifiées ailleurs.
-// - En cas de conflit, la modification la plus récente gagne.
+// - En cas de conflit, on fusionne champ par champ (fusion à 3 voies avec la dernière
+//   version commune) : un appareil qui change le prix n'efface plus le modèle 3D
+//   ajouté au même moment par l'autre.
 
 const TABLES = ['items', 'purchases', 'lists'];
 
 // Les métadonnées créées par une version précédente n'ont pas toutes les tables
 function ensureMeta(meta) {
-  for (const k of ['hashes', 'dirty', 'tomb']) { meta[k] = meta[k] || {}; for (const t of TABLES) meta[k][t] = meta[k][t] || {}; }
+  for (const k of ['hashes', 'dirty', 'tomb', 'base']) { meta[k] = meta[k] || {}; for (const t of TABLES) meta[k][t] = meta[k][t] || {}; }
   return meta;
 }
 
@@ -23,6 +25,35 @@ function hashRow(row) {
 }
 
 const ts = (iso) => (iso ? Date.parse(iso) || 0 : 0);
+
+// JSON à clés triées (Postgres jsonb réordonne les clés)
+function stable(v) {
+  if (v === undefined) return 'u';
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
+  return '{' + Object.keys(v).sort().filter((k) => v[k] !== undefined).map((k) => JSON.stringify(k) + ':' + stable(v[k])).join(',') + '}';
+}
+const same = (a, b) => stable(a) === stable(b);
+const strip = ({ updatedAt, ...d }) => d;
+
+/**
+ * Fusion à 3 voies d'une ligne modifiée des deux côtés.
+ * Un champ modifié localement (par rapport à la base commune) garde la valeur locale,
+ * sinon on prend la valeur distante. Sans base connue (anciennes données), on garde les
+ * valeurs locales et on récupère seulement les champs absents localement.
+ */
+export function mergeRow(base, local, remote) {
+  const out = {};
+  const keys = new Set([...Object.keys(local), ...Object.keys(remote), ...Object.keys(base || {})]);
+  for (const k of keys) {
+    if (k === 'updatedAt' || k === 'id') continue;
+    let v;
+    if (base) v = same(local[k], base[k]) ? remote[k] : local[k];
+    else v = local[k] !== undefined ? local[k] : remote[k];
+    if (v !== undefined) out[k] = v;
+  }
+  return out;
+}
 
 export function emptyMeta() {
   return ensureMeta({ lastPull: null, settingsAt: null });
@@ -54,6 +85,7 @@ export function markChanges(store, meta, nowIso = new Date().toISOString()) {
       if (!seen.has(id)) {
         delete meta.hashes[t][id];
         delete meta.dirty[t][id];
+        delete meta.base[t][id];
         meta.tomb[t][id] = nowIso;
         any = true;
       }
@@ -80,7 +112,7 @@ export async function push(supabase, store, meta) {
       const { error } = await supabase.from(t).upsert(chunk, { onConflict: 'id' });
       if (error) throw new Error(`${t} : ${error.message}`);
     }
-    for (const r of rows) delete meta.dirty[t][r.id];
+    for (const r of rows) { delete meta.dirty[t][r.id]; meta.base[t][r.id] = strip(r); }
     meta.tomb[t] = {};
     sent += payload.length;
   }
@@ -107,19 +139,32 @@ export async function pull(supabase, store, meta) {
         const list = store[t] || (store[t] = []);
         const idx = list.findIndex((r) => r.id === row.id);
         const local = idx >= 0 ? list[idx] : null;
-        // une modification locale plus récente et pas encore envoyée gagne
-        if (local && meta.dirty[t][row.id] && ts(local.updatedAt) > ts(row.updated_at)) continue;
         if (meta.tomb[t][row.id] && ts(meta.tomb[t][row.id]) > ts(row.updated_at)) continue;
         if (row.deleted) {
           if (local) { list.splice(idx, 1); applied++; }
           delete meta.hashes[t][row.id];
           delete meta.dirty[t][row.id];
+          delete meta.base[t][row.id];
           continue;
         }
-        if (local && ts(local.updatedAt) >= ts(row.updated_at) && meta.hashes[t][row.id] === hashRow(local)) continue;
-        const incoming = { ...row.data, id: row.id, updatedAt: row.updated_at };
+        const remote = { ...row.data, id: row.id };
+        if (local && meta.dirty[t][row.id]) {
+          // modifiée des deux côtés : fusion champ par champ, la ligne reste à envoyer
+          const base = meta.base[t][row.id];
+          if (base && same(strip(base), strip(remote))) continue; // rien de neuf à distance
+          const merged = { ...mergeRow(base, local, remote), id: row.id };
+          merged.updatedAt = ts(local.updatedAt) > ts(row.updated_at) ? local.updatedAt : row.updated_at;
+          meta.base[t][row.id] = strip(remote);
+          if (!same(strip(merged), strip(local))) { list[idx] = merged; applied++; }
+          meta.hashes[t][row.id] = hashRow(list[idx]);
+          continue;
+        }
+        if (local && same(strip(local), strip(remote))) { meta.base[t][row.id] = strip(remote); continue; }
+        if (local && ts(local.updatedAt) > ts(row.updated_at) && meta.hashes[t][row.id] === hashRow(local)) continue;
+        const incoming = { ...remote, updatedAt: row.updated_at };
         if (idx >= 0) list[idx] = incoming; else list.unshift(incoming);
         meta.hashes[t][row.id] = hashRow(incoming);
+        meta.base[t][row.id] = strip(remote);
         delete meta.dirty[t][row.id];
         applied++;
       }
@@ -154,10 +199,10 @@ export async function syncSettings(supabase, store, meta, localChanged) {
   return 'same';
 }
 
-/** Cycle complet : changements locaux → envoi → réception. */
+/** Cycle complet : changements locaux → réception (avec fusion) → envoi. */
 export async function syncOnce(supabase, store, meta) {
   markChanges(store, meta);
-  const sent = await push(supabase, store, meta);
   const applied = await pull(supabase, store, meta);
+  const sent = await push(supabase, store, meta);
   return { sent, applied };
 }

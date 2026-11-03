@@ -48,6 +48,18 @@ function itemRow(it, pic, ctx) {
   ];
   const facts = [];
   if (it.size) facts.push(['Taille', it.size]);
+  const j = it.jersey;
+  if (j) {
+    const flock = [j.name, j.number].filter(Boolean).join(' ');
+    if (flock) facts.push(['Flocage', flock]);
+    if (j.patches?.length) facts.push(['Patchs', j.patches.join(', ')]);
+    for (const [k, v] of Object.entries(j.shop || {})) if (v) facts.push([k, v]);
+    if (flock && j.version) facts.push(['Version', j.version]);
+    if (j.sleeves === 'longues') facts.push(['Manches', 'longues']);
+  }
+  if (it.scent) {
+    for (const [k, l] of [['top', 'Notes de tête'], ['heart', 'Notes de cœur'], ['base', 'Notes de fond']]) if (it.scent[k]?.length) facts.push([l, it.scent[k].join(', ')]);
+  }
   const piece = ctx.pieceOf?.(it);
   if (piece) facts.push(['Type', ctx.PIECES[piece].label]);
   if (it.targetPrice) facts.push(['Prix visé', eur(it.targetPrice)]);

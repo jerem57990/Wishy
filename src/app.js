@@ -1,4 +1,6 @@
 import { createHeroScene, createBarsScene } from './scenes.js';
+import { haptic } from './touch.js';
+import { isJersey, isBasket, presetPatches, shopGroups, defaultJersey, optionsExtra, jerseySummary } from './jersey.js';
 import { extractPalette, suggestions, nearestPantone, harmony, outfitVerdict, pantoneByName, hexToLch } from './colors.js';
 
 // ---------------------------------------------------------------------------
@@ -238,6 +240,8 @@ function render() {
   renderCabinePick();
   renderLooks();
   renderSettings();
+  if (ui.style === 'dressing' && $('#view-cabine').classList.contains('active')) initWardrobe();
+  if (ui.style === 'couleurs' && $('#view-cabine').classList.contains('active')) initSphere();
   if (ui.openId) openDrawer(ui.openId, true);
 }
 
@@ -407,6 +411,7 @@ function monthsWindow() {
 }
 
 function renderDash() {
+  if (piggy && $('#view-depenses').classList.contains('active')) initPiggy();
   const months = monthsWindow();
   const sums = months.map((m) => {
     const k = monthKey(m);
@@ -416,6 +421,25 @@ function renderDash() {
   const idx = 11 + ui.monthOffset;
   bars?.setData(sums, idx);
   renderMonth(months[idx]);
+}
+
+// ---------- Tirelire 3D ----------
+let piggy = null;
+async function initPiggy() {
+  const saved = Math.round(totalSaved());
+  $('#piggyTotal').textContent = eur0(saved);
+  let seen = null;
+  try { seen = localStorage.getItem('wishy-piggy-seen'); } catch (_) {}
+  const prev = seen == null ? null : +seen;
+  $('#piggyNew').textContent = prev != null && saved > prev ? `+${eur0(saved - prev)} depuis ta dernière visite` : saved ? '' : 'Les pièces tomberont ici à chaque promo sur ta wishlist.';
+  try { localStorage.setItem('wishy-piggy-seen', String(saved)); } catch (_) {}
+  const { needsMotionPermission, hasMotion } = await import('./touch.js');
+  $('#piggyMotion').hidden = !(hasMotion() && needsMotionPermission());
+  $('#piggyHint').textContent = hasMotion() ? 'Penche ou secoue ton téléphone' : 'Touche-la pour la secouer';
+  try {
+    if (!piggy) { const { createPiggy } = await import('./piggy.js'); piggy = createPiggy($('#piggy3d')); piggy.setAmount(saved, { animateFrom: prev ?? Math.max(0, saved - 12) }); piggy.last = saved; }
+    else if (piggy.last !== saved) { piggy.setAmount(saved, { animateFrom: piggy.last }); piggy.last = saved; }
+  } catch (e) { console.warn('Tirelire 3D indisponible', e); }
 }
 
 function renderMonth(m) {
@@ -520,6 +544,7 @@ function renderHarmony() {
 
 function setOutfit(slot, id) {
   outfit[slot] = outfit[slot] === id ? null : id;
+  renderMirror();
   renderCabinePick();
   renderStage();
 }
@@ -570,6 +595,90 @@ async function initCabine() {
   for (const slot of ['top', 'bottom']) { const first = db.items.find((i) => i.status === 'wish' && pieceOf(i) === slot); if (first && !outfit[slot]) outfit[slot] = first.id; }
   renderCabinePick();
   renderStage();
+}
+
+
+// ---------- Style : onglets Cabine IA / Dressing 3D / Couleurs 3D ----------
+const STYLE_TABS = {
+  cabine: ["Cabine d'essayage", "Choisis un haut et un bas de ta wishlist : l'IA les enfile sur ta photo, avec leur vraie coupe et leur vraie matière."],
+  dressing: ['Dressing 3D', 'Ta wishlist sur une penderie. Compose ta tenue dans le miroir, puis essaie-la avec l\'IA.'],
+  couleurs: ['Couleurs 3D', 'Tes vêtements placés sur la sphère des couleurs Pantone. Touche-en un pour voir ceux qui vont avec.'],
+};
+let wardrobe = null, sphere = null;
+const styleItems = () => db.items.filter((i) => i.status === 'wish' && isClothing(i));
+const proxied = async (it) => { const src = it.tryonImage || it.image; if (!src) return null; if (src.startsWith('data:') || isDemo) return src; return api.imageData(src).catch(() => null); };
+async function withHex(list) {
+  await Promise.all(list.map((i) => ensurePalette(i).catch(() => [])));
+  return list.map((i) => ({ id: i.id, title: i.title, hex: mainColor(i) || '#c9cbd4', image: i.tryonImage || i.image, _it: i }));
+}
+function switchStyle(tab) {
+  ui.style = tab;
+  $$('#styleTabs button').forEach((b) => b.classList.toggle('on', b.dataset.style === tab));
+  $('#paneCabine').hidden = tab !== 'cabine';
+  $('#paneDressing').hidden = tab !== 'dressing';
+  $('#paneCouleurs').hidden = tab !== 'couleurs';
+  $('#styleTitle').textContent = STYLE_TABS[tab][0];
+  $('#styleSub').textContent = STYLE_TABS[tab][1];
+  if (tab === 'dressing') initWardrobe();
+  if (tab === 'couleurs') initSphere();
+}
+async function initWardrobe() {
+  renderMirror();
+  const list = await withHex(styleItems());
+  if (!list.length) { $('#wardrobe3d').innerHTML = '<p class="empty-3d">Ajoute des vêtements à ta wishlist pour remplir ta penderie.</p>'; return; }
+  try {
+    if (!wardrobe) {
+      const { createWardrobe } = await import('./wardrobe.js');
+      $('#wardrobe3d').innerHTML = '';
+      wardrobe = createWardrobe($('#wardrobe3d'), { imageData: (x) => proxied(x._it), onPick: (x) => toMirror(x._it), dropZone: () => $('#mirror') });
+    }
+    const sig = list.map((x) => x.id + x.hex).join();
+    if (wardrobe.sig !== sig) { wardrobe.sig = sig; wardrobe.setItems(list); }
+  } catch (e) { console.warn(e); }
+}
+function toMirror(it) {
+  const slot = pieceOf(it) || 'top';
+  outfit[slot] = it.id;
+  haptic();
+  renderMirror();
+  renderCabinePick();
+  $('#mirror').classList.remove('pop'); void $('#mirror').offsetWidth; $('#mirror').classList.add('pop');
+}
+function renderMirror() {
+  const o = outfitItems();
+  $('#mirrorSlots').innerHTML = Object.entries(PIECES).map(([k, p]) => {
+    const it = o[k];
+    return `<div class="mslot ${it ? 'full' : ''}" data-mslot="${k}">${it ? `${it.image || it.tryonImage ? `<img src="${esc(it.tryonImage || it.image)}" alt="" referrerpolicy="no-referrer">` : ''}<span>${esc(it.title)}</span><button class="x" data-mclear="${k}" aria-label="Retirer">✕</button>` : `<span class="muted">${p.label}</span>`}</div>`;
+  }).join('');
+  const hexes = Object.values(o).filter(Boolean).map(mainColor).filter(Boolean);
+  const v = hexes.length > 1 ? outfitVerdict(hexes) : null;
+  $('#mirrorVerdict').innerHTML = v ? `<b>${v.level === 'top' ? 'Bel accord' : v.level === 'ok' ? 'Ça passe' : 'Risqué'}</b> · ${esc(v.label)}` : 'Envoie au moins un haut ou un bas dans le miroir.';
+  $('#mirrorTry').disabled = !(o.top || o.bottom);
+}
+async function initSphere() {
+  const list = await withHex(styleItems().filter((i) => mainColor(i) || i.image));
+  try {
+    if (!sphere) {
+      const { createColorSphere } = await import('./colorsphere.js');
+      sphere = createColorSphere($('#sphere3d'), { harmony, imageData: (x) => proxied(x._it), onPick: renderSphereSide });
+    }
+    const sig = list.map((x) => x.id + x.hex).join();
+    if (sphere.sig !== sig) { sphere.sig = sig; await sphere.setItems(list); }
+  } catch (e) { console.warn(e); }
+  if (!list.length) $('#sphereSide').innerHTML = '<p class="muted">Ajoute des vêtements avec une photo : Wishy lit leur couleur et les place sur la sphère.</p>';
+}
+function renderSphereSide(sel) {
+  const box = $('#sphereSide');
+  if (!sel) {
+    box.innerHTML = '<h4>Comment lire la sphère</h4><p class="muted small">Le tour de la sphère suit les teintes, le haut les couleurs claires, le bas les foncées. Les couleurs neutres (noir, blanc, gris, beige, marine) sont près de l\'axe central : elles vont avec presque tout.</p><p class="muted small">Touche un vêtement pour allumer ceux qui s\'accordent avec lui.</p>';
+    return;
+  }
+  const it = sel.item._it, p = nearestPantone(sel.item.hex), sug = suggestions(sel.item.hex);
+  box.innerHTML = `<div class="ss-head">${thumbHTML(it)}<div><b>${esc(it.title)}</b><div class="pchips">${chipHTML(p, { size: 's', data: 'data-copy' })}</div></div></div>
+    <p class="d-sub"><strong>${sel.matches.length ? `${sel.matches.length} vêtement${sel.matches.length > 1 ? 's' : ''} assorti${sel.matches.length > 1 ? 's' : ''}` : 'Aucun accord fort dans ta wishlist'}</strong></p>
+    <ul class="matches">${sel.matches.slice(0, 6).map(({ item, h }) => `<li><button data-sphere="${item.id}">${thumbHTML(item._it)}<span><b>${esc(item.title)}</b><small><i style="background:${item.hex}"></i>${esc(h.label)}</small></span></button></li>`).join('')}</ul>
+    ${sug.families[0] ? `<p class="d-sub"><strong>${esc(sug.families[0].label)}</strong> · ${esc(sug.families[0].hint)}</p><div class="pchips">${sug.families[0].colors.slice(0, 4).map((c) => chipHTML(c, { size: 's', data: 'data-copy' })).join('')}</div>` : ''}
+    <div class="ss-actions"><button class="btn-ghost" data-sopen="${it.id}">Ouvrir la fiche</button>${pieceOf(it) ? `<button class="btn-ink" data-smirror="${it.id}">Au miroir</button>` : ''}</div>`;
 }
 
 // Redimensionne la photo (max 1024 px de haut) avant de l'enregistrer
@@ -676,7 +785,9 @@ function openDrawer(id, refreshOnly = false) {
         <button class="btn-ghost" data-act="refresh"><span class="spin"></span>Actualiser</button>
       </div>
 
-      ${!it.model3d && (it.image || it.tryonImage) ? `<div class="d-section make3d" id="make3d"><div><h4>En 3D</h4><p class="muted">Transforme la photo en objet 3D à faire tourner du doigt${AR_OK ? ', et à poser chez toi en réalité augmentée' : ''}. Idéal pour les chaussures, parfums, casquettes et objets. Compte 30 s à 1 min.</p></div><button class="btn-ink" data-act="make3d">Créer en 3D</button><div class="tryon-progress" id="m3dProgress" hidden><div class="tp-track"><i id="m3dBar"></i></div><span id="m3dText"></span></div></div>` : ''}
+      ${isJersey(it) ? jerseySectionHTML(it) : ''}
+      ${it.category === 'parfums' ? scentSectionHTML(it) : ''}
+      ${!it.model3d && (it.image || it.tryonImage) ? `<div class="d-section make3d" id="make3d"><div><h4>En 3D</h4><p class="muted">Transforme la photo en objet 3D à faire tourner du doigt${AR_OK ? ', et à poser chez toi en réalité augmentée' : ''}. Idéal pour les chaussures, parfums, casquettes et objets. Compte 30 s à 1 min.</p></div><button class="btn-ink" data-act="make3d" ${making3d ? 'disabled' : ''}>Créer en 3D</button><div class="tryon-progress" id="m3dProgress" ${making3d === it.id ? '' : 'hidden'}><div class="tp-track"><i id="m3dBar" style="width:${last3d.pct}%"></i></div><span id="m3dText">${esc(last3d.text)}</span></div></div>` : ''}
       <div class="d-section"><h4>Historique du prix</h4>${historyChart(it)}</div>
       ${isClothing(it) ? '<div class="d-section" id="dColors"><h4>Couleurs et combos Pantone</h4><p class="muted" style="font-size:13px">Analyse de la photo…</p></div>' : ''}
 
@@ -709,6 +820,8 @@ function openDrawer(id, refreshOnly = false) {
     </div>`;
   if (isClothing(it)) fillColors(it);
   if (show3d) mount3d(it, keep);
+  if (isJersey(it)) mountJersey(it);
+  if (it.category === 'parfums') mountScent(it);
   if (!refreshOnly) {
     $('#drawer').classList.add('open');
     $('#drawer').setAttribute('aria-hidden', 'false');
@@ -716,10 +829,161 @@ function openDrawer(id, refreshOnly = false) {
   }
 }
 
+
+// ---------- Maillots : flocage et patchs ----------
+const jersey3d = { handle: null, build: null, id: null };
+function jerseySectionHTML(it) {
+  const j = defaultJersey(it);
+  const g = shopGroups(it);
+  const presets = presetPatches(it).filter((p) => !(g.badge?.values || []).some((v) => v.label === p));
+  const all = [...new Set([...presets, ...(j.patches || [])])];
+  const sel = (grp, label) => `<label class="field">${esc(label || grp.name)}<select data-jshop="${esc(grp.name)}"><option value="">—</option>${grp.values.map((v) => `<option value="${esc(v.label)}" ${j.shop?.[grp.name] === v.label ? 'selected' : ''}>${esc(v.label)}${v.add ? ` (+${eur(v.add)})` : ''}</option>`).join('')}</select></label>`;
+  const extra = optionsExtra(it, j);
+  const versions = isBasket(it) ? ['Swingman', 'Authentic'] : ['Fan', 'Player'];
+  return `<div class="d-section jersey" id="dJersey">
+    <h4>Flocage et patchs</h4>
+    <div class="jersey-wrap">
+      <div class="j3d" id="j3d" title="Fais tourner le maillot du doigt"></div>
+      <div class="jersey-form">
+        <div class="d-grid">
+          <label class="field">Nom floqué<input id="jName" maxlength="16" value="${esc(j.name)}" placeholder="MUSIALA" autocapitalize="characters" spellcheck="false" /></label>
+          <label class="field">Numéro<input id="jNumber" inputmode="numeric" maxlength="3" value="${esc(j.number)}" placeholder="10" /></label>
+          <div class="field">Version<div class="seg small">${versions.map((v) => `<button data-jver="${v}" class="${j.version === v ? 'on' : ''}">${v}</button>`).join('')}</div></div>
+          <div class="field">Manches<div class="seg small">${['courtes', 'longues'].map((v) => `<button data-jsleeve="${v}" class="${j.sleeves === v ? 'on' : ''}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}</div></div>
+          ${g.badge ? sel(g.badge, 'Badge (proposé par la boutique)') : ''}
+          ${g.flocage ? sel(g.flocage, 'Flocage (boutique)') : ''}
+          ${g.size ? sel(g.size, 'Taille (boutique)') : ''}
+          ${g.others.map((o) => sel(o)).join('')}
+        </div>
+        <p class="d-sub" style="margin-top:12px"><strong>Patchs souhaités</strong></p>
+        <div class="jpatches">${all.map((p) => `<button class="lchip ${j.patches.includes(p) ? 'on' : ''}" data-jpatch="${esc(p)}">${esc(p)}</button>`).join('')}<button class="lchip add" data-jpatch-add>＋ Autre patch</button></div>
+        ${extra ? `<p class="jextra">Avec tes options : <strong>${eur((bestPrice(it)?.price || 0) + extra)}</strong> <span class="muted">(+${eur(extra)})</span></p>` : ''}
+        ${it.fx ? `<p class="fineprint">Prix converti depuis ${esc(it.fx.from)}${it.priceOrig ? ` (${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: it.priceOrig.currency }).format(it.priceOrig.amount)})` : ''} au taux du jour.</p>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+function currentJersey(it) {
+  const j = defaultJersey(it);
+  const name = $('#jName'), num = $('#jNumber');
+  if (name) j.name = name.value.toUpperCase().trim();
+  if (num) j.number = num.value.replace(/\D/g, '').slice(0, 3);
+  return j;
+}
+async function mountJersey(it) {
+  const host = $('#j3d');
+  if (!host) return;
+  jersey3d.handle?.dispose();
+  jersey3d.handle = null;
+  const [{ buildJersey3D }, { mountViewer }] = await Promise.all([import('./jersey.js'), import('./viewer3d.js')]);
+  if (ui.openId !== it.id || !$('#j3d')) return;
+  await ensurePalette(it).catch(() => {});
+  const color = mainColor(it) || '#c8102e';
+  const second = it.palette?.[1]?.hex || null;
+  const built = buildJersey3D(defaultJersey(it), color, second);
+  jersey3d.build = built;
+  jersey3d.id = it.id;
+  jersey3d.handle = await mountViewer($('#j3d'), built.object);
+}
+async function saveJersey(it, patch = {}) {
+  const j = { ...currentJersey(it), ...patch };
+  it.jersey = j;
+  jersey3d.build?.update(j, mainColor(it) || '#c8102e');
+  await api.updateItem(it.id, { jersey: j });
+}
+
+// ---------- Parfums : pyramide olfactive ----------
+const scent3d = [];
+const scentBusy = new Set();
+function disposeScent() { while (scent3d.length) scent3d.pop().dispose(); }
+const notesTxt = (a) => (a || []).join(', ');
+function scentSectionHTML(it) {
+  const sc = it.scent;
+  const others = db.items.filter((o) => o.id !== it.id && o.category === 'parfums' && o.scent && (o.scent.top?.length || o.scent.heart?.length || o.scent.base?.length));
+  const cmp = ui.cmpScent && others.find((o) => o.id === ui.cmpScent);
+  let cmpHTML = '';
+  if (cmp) {
+    const c = compareScentsSync(sc, cmp.scent);
+    cmpHTML = `<div class="scent-cmp">
+      <div class="pyr-duo"><figure><div class="pyr3d" id="pyrA"></div><figcaption>${esc(it.title)}</figcaption></figure><figure><div class="pyr3d" id="pyrB"></div><figcaption>${esc(cmp.title)}</figcaption></figure></div>
+      <p class="d-sub"><strong>${c.common.length ? `${c.common.length} note${c.common.length > 1 ? 's' : ''} en commun` : 'Aucune note en commun'}</strong> · ${c.score >= 0.5 ? 'parfums très proches' : c.score >= 0.25 ? 'un air de famille' : 'deux univers différents'}</p>
+      ${c.common.length ? `<div class="notes-row">${c.common.map((n) => `<span class="note hl">${esc(n)}</span>`).join('')}</div>` : ''}
+      <div class="cmp-cols"><div><small>Seulement dans celui-ci</small><div class="notes-row">${c.onlyA.map((n) => `<span class="note">${esc(n)}</span>`).join('') || '—'}</div></div><div><small>Seulement dans l'autre</small><div class="notes-row">${c.onlyB.map((n) => `<span class="note">${esc(n)}</span>`).join('') || '—'}</div></div></div>
+    </div>`;
+  }
+  const has = sc && (sc.top?.length || sc.heart?.length || sc.base?.length);
+  return `<div class="d-section scent" id="dScent">
+    <h4>Pyramide olfactive</h4>
+    ${cmp ? cmpHTML : has ? '<div class="pyr3d" id="pyr3d"></div>' : `<p class="muted small" id="scentState">${scentBusy.has(it.id) ? 'Recherche des notes de ce parfum…' : 'Notes inconnues pour l\'instant : touche « Retrouver les notes » ou saisis-les.'}</p>`}
+    ${has && sc.family ? `<p class="d-sub">Famille <strong>${esc(sc.family)}</strong>${sc.character?.length ? ` · ${esc(sc.character.slice(0, 3).join(', '))}` : ''}</p>` : ''}
+    <div class="d-grid scent-edit">
+      <label class="field">Notes de tête<input data-scent="top" value="${esc(notesTxt(sc?.top))}" placeholder="Bergamote, Baie rose" /></label>
+      <label class="field">Notes de cœur<input data-scent="heart" value="${esc(notesTxt(sc?.heart))}" placeholder="Jasmin, Iris" /></label>
+      <label class="field">Notes de fond<input data-scent="base" value="${esc(notesTxt(sc?.base))}" placeholder="Vanille, Santal, Musc" /></label>
+    </div>
+    <div class="scent-actions">
+      <button class="btn-ghost" data-sact="lookup">${has ? 'Rechercher à nouveau' : 'Retrouver les notes'}</button>
+      ${others.length ? `<label class="field inline">Comparer avec<select id="scentCmp"><option value="">—</option>${others.map((o) => `<option value="${o.id}" ${o.id === ui.cmpScent ? 'selected' : ''}>${esc(o.title)}</option>`).join('')}</select></label>` : ''}
+    </div>
+    ${it.scentCandidates?.length > 1 ? `<label class="field">Ce n'est pas le bon parfum ?<select id="scentPick">${it.scentCandidates.map((c) => `<option value="${esc(c.id)}" ${c.id === sc?.source?.id ? 'selected' : ''}>${esc(c.name)} · ${esc(c.house)}</option>`).join('')}</select></label>` : ''}
+    ${sc?.source?.name ? `<p class="fineprint">Notes : ${esc(sc.source.name)} (${esc(sc.source.house)}) d'après la base ouverte <a href="#" data-url="https://www.scento.com/perfume-database">Scento</a> (CC BY 4.0)${sc.source.guessed ? ' · pyramide estimée à partir de la liste des notes' : ''}.</p>` : ''}
+  </div>`;
+}
+function compareScentsSync(a, b) {
+  const all = (s) => [...(s?.top || []), ...(s?.heart || []), ...(s?.base || [])];
+  const na = new Map(all(a).map((n) => [n.toLowerCase(), n])), nb = new Map(all(b).map((n) => [n.toLowerCase(), n]));
+  const common = [...na.keys()].filter((k) => nb.has(k)).map((k) => na.get(k));
+  return { common, onlyA: [...na.keys()].filter((k) => !nb.has(k)).map((k) => na.get(k)), onlyB: [...nb.keys()].filter((k) => !na.has(k)).map((k) => nb.get(k)), score: common.length / Math.max(1, Math.min(na.size, nb.size)) };
+}
+async function mountScent(it) {
+  disposeScent();
+  const { mountPyramid } = await import('./perfume.js');
+  if (ui.openId !== it.id) return;
+  const color = mainColor(it) || '#ffd21f';
+  const cmp = ui.cmpScent && db.items.find((o) => o.id === ui.cmpScent);
+  if (cmp && $('#pyrA')) {
+    const common = compareScentsSync(it.scent, cmp.scent).common;
+    scent3d.push(mountPyramid($('#pyrA'), it.scent, { highlight: common, bottleColor: color }));
+    scent3d.push(mountPyramid($('#pyrB'), cmp.scent, { highlight: common, bottleColor: mainColor(cmp) || '#ff8fb0' }));
+  } else if ($('#pyr3d')) scent3d.push(mountPyramid($('#pyr3d'), it.scent, { bottleColor: color }));
+  else if (!it.scentTried && !scentBusy.has(it.id)) lookupScent(it, true);
+}
+async function lookupScent(it, auto = false) {
+  scentBusy.add(it.id);
+  if ($('#scentState')) $('#scentState').textContent = 'Recherche des notes de ce parfum…';
+  try {
+    const { searchPerfume, scentFrom } = await import('./perfume.js');
+    const found = await searchPerfume(it.title, it.brand);
+    scentBusy.delete(it.id);
+    if (!found.length) {
+      await api.updateItem(it.id, { scentTried: true });
+      if (!auto) toast('Parfum introuvable dans la base : saisis ses notes à la main', 'err');
+      it.scentTried = true;
+      if (ui.openId === it.id && $('#scentState')) $('#scentState').textContent = 'Parfum introuvable dans la base ouverte. Saisis ses notes ci-dessous.';
+      return;
+    }
+    const scent = scentFrom(found[0]);
+    const patch = { scent, scentTried: true, scentCandidates: found.map((p) => ({ id: p.id, name: p.name, house: p.house })) };
+    await update(it.id, patch);
+    if (!auto) toast(`Notes trouvées : ${found[0].name}`);
+  } catch (e) {
+    scentBusy.delete(it.id);
+    if (!auto) toast(e.message, 'err');
+    if (ui.openId === it.id && $('#scentState')) $('#scentState').textContent = 'Base de parfums inaccessible pour le moment. Saisis les notes ci-dessous.';
+  }
+}
+async function pickScent(it, id) {
+  const { searchPerfume, scentFrom } = await import('./perfume.js');
+  const found = await searchPerfume(it.title, it.brand);
+  const p = found.find((x) => x.id === id);
+  if (p) update(it.id, { scent: scentFrom(p) });
+}
+
 // ---------- 3D ----------
 const AR_OK = /iP(hone|ad|od)|Android/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const viewer3d = { id: null, src: null, host: null, handle: null };
 let making3d = null;
+const last3d = { pct: 3, text: 'Préparation…' };
 function dispose3d() { viewer3d.handle?.dispose(); Object.assign(viewer3d, { id: null, src: null, host: null, handle: null }); }
 async function modelSource(it) {
   if (String(it.model3d).startsWith('local:')) return api.modelData(it.id);
@@ -746,6 +1010,7 @@ async function mount3d(it, keep) {
 async function make3d(it) {
   if (making3d) return toast('Une création 3D est déjà en cours', 'err');
   making3d = it.id;
+  Object.assign(last3d, { pct: 3, text: 'Préparation…' });
   const p = $('#m3dProgress');
   if (p) { p.hidden = false; $('#m3dBar').style.width = '3%'; $('#m3dText').textContent = 'Préparation…'; }
   $$('[data-act="make3d"]').forEach((b) => (b.disabled = true));
@@ -765,6 +1030,9 @@ async function openAR3d(it) {
 
 function closeDrawer() {
   dispose3d();
+  jersey3d.handle?.dispose(); jersey3d.handle = null;
+  disposeScent();
+  ui.cmpScent = null;
   ui.view3d = null;
   ui.openId = null;
   $('#drawer').classList.remove('open');
@@ -788,6 +1056,7 @@ async function addFromInput() {
   input.value = '';
   confetti(btn);
   hero?.pop();
+  haptic('success');
   toast(r.item.price ? `Ajouté · ${eur(r.item.price)}` : 'Ajouté — saisis le prix dans la fiche');
   db = await api.getDb();
   switchView('wishlist');
@@ -801,8 +1070,9 @@ function switchView(v) {
   $$('.nav').forEach((n) => n.classList.toggle('active', n.dataset.view === v));
   $$('.view').forEach((s) => s.classList.toggle('active', s.id === `view-${v}`));
   $('#main').scrollTop = 0;
+  if (v === 'depenses') initPiggy();
   if (v === 'depenses' && !bars) { bars = createBarsScene($('#bars3d'), { onSelect: (i) => { ui.monthOffset = i - 11; renderMonth(monthsWindow()[i]); } }); renderDash(); }
-  if (v === 'cabine') initCabine();
+  if (v === 'cabine') { initCabine(); switchStyle(ui.style || 'cabine'); }
 }
 
 // ---------------------------------------------------------------------------
@@ -878,6 +1148,29 @@ $('#selBar').addEventListener('click', async (e) => {
   if (a === 'word') doExport(db.items.filter((i) => ui.sel.has(i.id)), L ? L.name : 'Ma wishlist');
 });
 
+$('#styleTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-style]'); if (b) switchStyle(b.dataset.style); });
+$('#mirror').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-mclear]');
+  if (c) { outfit[c.dataset.mclear] = null; renderMirror(); renderCabinePick(); }
+});
+$('#mirrorTry').addEventListener('click', async () => {
+  switchStyle('cabine');
+  await initCabine();
+  renderStage();
+  if (!cab.photo) { toast('Ajoute une photo de toi pour lancer l\'essayage', 'err'); return; }
+  runTryOn();
+});
+$('#sphereSide').addEventListener('click', (e) => {
+  const s1 = e.target.closest('[data-sphere]'); if (s1) sphere?.selectById(s1.dataset.sphere);
+  const o = e.target.closest('[data-sopen]'); if (o) openDrawer(o.dataset.sopen);
+  const m = e.target.closest('[data-smirror]'); if (m) { toMirror(db.items.find((i) => i.id === m.dataset.smirror)); switchStyle('dressing'); }
+  const cp = e.target.closest('[data-copy]'); if (cp) navigator.clipboard?.writeText(cp.title.split(' — ')[0]).then(() => toast('Référence Pantone copiée'));
+});
+$('#piggyMotion').addEventListener('click', async () => {
+  const { enableMotion } = await import('./touch.js');
+  if (await enableMotion()) { $('#piggyMotion').hidden = true; $('#piggyHint').textContent = 'Penche ou secoue ton téléphone'; piggy?.shake(); }
+  else toast('Mouvements refusés : réautorise-les dans Réglages › Safari', 'err');
+});
 $('#checkBtn').addEventListener('click', async () => { await api.checkPrices(); db = await api.getDb(); render(); });
 
 // Panneau
@@ -885,6 +1178,25 @@ $('#drawer').addEventListener('click', async (e) => {
   if (e.target.closest('[data-close]')) return closeDrawer();
   const it = db.items.find((i) => i.id === ui.openId);
   if (!it) return;
+  const jv = e.target.closest('[data-jver],[data-jsleeve]');
+  if (jv) {
+    jv.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === jv));
+    await saveJersey(it, jv.dataset.jver ? { version: jv.dataset.jver } : { sleeves: jv.dataset.jsleeve });
+    return;
+  }
+  const jp = e.target.closest('[data-jpatch],[data-jpatch-add]');
+  if (jp) {
+    const j = currentJersey(it);
+    let label = jp.dataset.jpatch;
+    if (!label) { label = await askText('Ajouter un patch', 'Nom du patch (ex. Coupe du monde des clubs)', '', 'Ajouter'); if (!label) return; }
+    const on = !j.patches.includes(label);
+    j.patches = on ? [...j.patches, label] : j.patches.filter((x) => x !== label);
+    await saveJersey(it, { patches: j.patches });
+    if (jp.dataset.jpatch) jp.classList.toggle('on', on); else openDrawer(it.id, true);
+    haptic();
+    return;
+  }
+  if (e.target.closest('[data-sact="lookup"]')) { lookupScent(it); return; }
   const act = e.target.closest('[data-act]')?.dataset.act;
   if (act === 'open') api.open(bestPrice(it)?.url || it.url);
   if (act === 'refresh') {
@@ -910,12 +1222,18 @@ $('#drawer').addEventListener('click', async (e) => {
   if (gl) { ui.list = gl.dataset.golist; closeDrawer(); switchView('wishlist'); render(); return; }
   const go = e.target.closest('[data-goto]');
   if (go) { openDrawer(go.dataset.goto); return; }
-  const shop = e.target.closest('.shop, .a-store');
-  if (shop) api.open(shop.dataset.url);
+  const shop = e.target.closest('.shop, .a-store, .fineprint a[data-url]');
+  if (shop) { e.preventDefault(); api.open(shop.dataset.url); }
   const altX = e.target.closest('[data-alt]');
   if (altX) { await api.removeAlt(it.id, +altX.dataset.alt); db = await api.getDb(); render(); }
   const prio = e.target.closest('[data-prio]');
   if (prio) update(it.id, { priority: +prio.dataset.prio === it.priority ? 0 : +prio.dataset.prio });
+});
+$('#drawer').addEventListener('input', (e) => {
+  if (e.target.id !== 'jName' && e.target.id !== 'jNumber') return;
+  if (e.target.id === 'jNumber') e.target.value = e.target.value.replace(/\D/g, '').slice(0, 3);
+  const it = db.items.find((i) => i.id === ui.openId);
+  if (it && jersey3d.id === it.id) jersey3d.build?.update(currentJersey(it), mainColor(it) || '#c8102e');
 });
 $('#drawer').addEventListener('change', (e) => {
   const id = ui.openId;
@@ -927,7 +1245,19 @@ $('#drawer').addEventListener('change', (e) => {
   if (e.target.id === 'dCat') update(id, { category: e.target.value, categoryEdited: true });
   if (e.target.id === 'dPiece') update(id, { piece: e.target.value || null });
   if (e.target.id === 'dSize') update(id, { size: e.target.value });
+  if (e.target.id === 'jName' || e.target.id === 'jNumber') { const it = db.items.find((i) => i.id === id); if (it) saveJersey(it); }
+  if (e.target.dataset.jshop) {
+    const it = db.items.find((i) => i.id === id);
+    if (it) { const j = currentJersey(it); saveJersey(it, { shop: { ...(j.shop || {}), [e.target.dataset.jshop]: e.target.value } }).then(() => openDrawer(id, true)); }
+  }
   if (e.target.id === 'dNotes') update(id, { notes: e.target.value.trim() });
+  if (e.target.dataset.scent) {
+    const it = db.items.find((i) => i.id === id);
+    const list = e.target.value.split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean).map((x) => x[0].toUpperCase() + x.slice(1));
+    update(id, { scent: { ...(it?.scent || {}), [e.target.dataset.scent]: list, source: it?.scent?.source ? { ...it.scent.source, edited: true } : null } });
+  }
+  if (e.target.id === 'scentCmp') { ui.cmpScent = e.target.value || null; openDrawer(id, true); }
+  if (e.target.id === 'scentPick') { const it = db.items.find((i) => i.id === id); if (it) pickScent(it, e.target.value); }
   if (e.target.id === 'dTryImg') update(id, { tryonImage: e.target.value.trim() || null });
   if (e.target.id === 'dManualPrice' && e.target.value) update(id, { price: +e.target.value });
 });
@@ -1048,7 +1378,15 @@ $('#maxBtn').addEventListener('click', () => { api.maximize(); document.body.cla
 $('#closeBtn').addEventListener('click', () => api.hide());
 
 // Messages du processus principal
-api.on('db:changed', (d) => { db = d; render(); });
+let promoSeen = null;
+function promoKeys() { return new Set(wishItems().filter((i) => dropOf(i) || atTarget(i)).map((i) => i.id + ':' + (bestPrice(i)?.price ?? ''))); }
+api.on('db:changed', (d) => {
+  db = d;
+  const now = promoKeys();
+  if (promoSeen && [...now].some((k) => !promoSeen.has(k))) { haptic('success'); hero?.pop(); }
+  promoSeen = now;
+  render();
+});
 api.on('toast', (t) => toast(t.text, t.type));
 api.on('checking', (on) => { $('#checkBtn').classList.toggle('is-checking', on); $('#checkBtn').disabled = on; $('#checkBtn .lbl').textContent = on ? 'Vérification…' : 'Vérifier les prix'; });
 api.on('focus-item', (id) => { switchView('wishlist'); openDrawer(id); });
@@ -1110,13 +1448,14 @@ if (api.getUpdate) {
   $('#updateBtn').addEventListener('click', () => api.installUpdate());
   $('#checkUpdateBtn').addEventListener('click', async () => renderUpdate(await api.checkUpdate()));
 } else { $('#appVersion').textContent = 'démo'; $('#checkUpdateBtn').disabled = true; }
-api.on('3d:progress', ({ text, pct }) => { const b = $('#m3dBar'); if (!b) return; $('#m3dProgress').hidden = false; b.style.width = Math.max(3, pct) + '%'; $('#m3dText').textContent = `${text}  ${pct ? pct + ' %' : ''}`; });
+api.on('3d:progress', ({ text, pct }) => { Object.assign(last3d, { pct: Math.max(3, pct), text: `${text}  ${pct ? pct + ' %' : ''}` }); const b = $('#m3dBar'); if (!b) return; $('#m3dProgress').hidden = false; b.style.width = Math.max(3, pct) + '%'; $('#m3dText').textContent = `${text}  ${pct ? pct + ' %' : ''}`; });
 api.on('tryon:progress', ({ text, pct }) => { $('#tpBar').style.width = Math.max(2, pct) + '%'; $('#tpText').textContent = `${text}  ${pct ? pct + ' %' : ''}`; });
 
 // ---------------------------------------------------------------------------
 // Démarrage
 // ---------------------------------------------------------------------------
 try { hero = createHeroScene($('#hero3d')); } catch (e) { console.warn('WebGL indisponible', e); }
+promoSeen = promoKeys();
 render();
 setInterval(renderHero, 60000);
 window.__wishy = { switchView, openDrawer, setOutfit, cab, renderStage, renderCabinePick, ui, render };

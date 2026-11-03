@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self' data: blob: https://yoavmfamksljxswubxzm.supabase.co" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self' data: blob: https://yoavmfamksljxswubxzm.supabase.co https://huggingface.co https://*.huggingface.co https://*.hf.co" />
   <title>Wishy</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -33,7 +33,7 @@
         <button class="nav active" data-view="wishlist"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg><span>Wishlist</span></button>
         <button class="nav" data-view="promos"><svg viewBox="0 0 24 24"><path d="M20 12l-8 8-9-9V3h8z" /><circle cx="7.5" cy="7.5" r="1.5" /></svg><span>Promos</span><b class="nav-badge" id="promoBadge" hidden>0</b></button>
         <button class="nav" data-view="depenses"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg><span>Dépenses</span></button>
-        <button class="nav" data-view="cabine"><svg viewBox="0 0 24 24"><path d="M9 3l-5 3 2 4 2-1v12h8V9l2 1 2-4-5-3a3 3 0 0 1-6 0z" /></svg><span>Cabine</span><i class="beta">IA</i></button>
+        <button class="nav" data-view="cabine"><svg viewBox="0 0 24 24"><path d="M9 3l-5 3 2 4 2-1v12h8V9l2 1 2-4-5-3a3 3 0 0 1-6 0z" /></svg><span>Style</span><i class="beta">3D</i></button>
         <div class="rail-spacer"></div>
         <button class="nav" data-view="reglages"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg><span>Réglages</span></button>
       </nav>
@@ -130,6 +130,18 @@
               <div><p class="muted">Panier moyen</p><p class="big" id="mAvg">0 €</p></div>
               <div><p class="muted">Économisé</p><p class="big mint" id="mSaved">0 €</p></div>
             </div>
+            <div class="panel piggy">
+              <div class="panel-head"><h3>Ma tirelire</h3><span class="muted" id="piggyHint">Touche-la pour la secouer</span></div>
+              <div class="piggy-wrap">
+                <div id="piggy3d" class="canvas-host"></div>
+                <div class="piggy-info">
+                  <p class="muted">Économisé grâce aux promos</p>
+                  <p class="big mint" id="piggyTotal">0 €</p>
+                  <p class="muted small" id="piggyNew"></p>
+                  <button class="btn-ghost" id="piggyMotion" hidden>Activer les mouvements</button>
+                </div>
+              </div>
+            </div>
             <div class="panel bars3d">
               <div class="panel-head"><h3>12 derniers mois</h3><span class="muted">Fais tourner le graphique</span></div>
               <div id="bars3d" class="canvas-host"></div>
@@ -147,11 +159,38 @@
 
         <!-- CABINE -->
         <section class="view" id="view-cabine">
-          <div class="page-head">
-            <h2>Cabine d'essayage</h2>
-            <p>Choisis un haut et un bas de ta wishlist : l'IA les enfile sur ta photo, avec leur vraie coupe et leur vraie matière.</p>
+          <div class="page-head row">
+            <div>
+              <h2 id="styleTitle">Cabine d'essayage</h2>
+              <p id="styleSub">Choisis un haut et un bas de ta wishlist : l'IA les enfile sur ta photo, avec leur vraie coupe et leur vraie matière.</p>
+            </div>
+            <div class="seg style-tabs" id="styleTabs" role="tablist">
+              <button data-style="cabine" class="on" role="tab">Cabine IA</button>
+              <button data-style="dressing" role="tab">Dressing 3D</button>
+              <button data-style="couleurs" role="tab">Couleurs 3D</button>
+            </div>
           </div>
-          <div class="cabine">
+          <div class="style-pane" id="paneDressing" hidden>
+            <div class="dressing">
+              <div class="panel wd-panel"><div id="wardrobe3d" class="canvas-host"></div><p class="wd-hint muted">Fais glisser la penderie. Touche le vêtement au centre, ou tire-le vers le bas, pour l'envoyer au miroir.</p></div>
+              <div class="mirror" id="mirror">
+                <div class="mirror-glass">
+                  <div class="mirror-slots" id="mirrorSlots"></div>
+                </div>
+                <div class="mirror-foot">
+                  <p class="muted small" id="mirrorVerdict"></p>
+                  <button class="btn-ink big-btn" id="mirrorTry">Essayer cette tenue avec l'IA</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="style-pane" id="paneCouleurs" hidden>
+            <div class="sphere-layout">
+              <div class="panel sphere-panel"><div id="sphere3d" class="canvas-host"></div></div>
+              <div class="panel sphere-side" id="sphereSide"></div>
+            </div>
+          </div>
+          <div class="cabine" id="paneCabine">
             <div class="stage" id="stage">
               <!-- 1. Pas encore de photo -->
               <label class="stage-drop" id="stageDrop">

@@ -173,11 +173,16 @@ export function createHeroScene(host) {
   });
   host.addEventListener('pointerup', () => (drag = null));
   host.addEventListener('pointerleave', () => { mx = my = 0; });
+  // iPhone : le sac suit l'inclinaison du téléphone
+  let tilt = null;
+  import('./touch.js').then(({ onMotionChange }) => onMotionChange((m) => { if (m.tiltX || m.tiltY) tilt = m; if (m.shake > 0.5) jump = 1; }));
 
   loop(host, renderer, camera, (t) => {
     const k = reduced ? 0 : 1;
-    rig.rotation.y += (mx * 0.35 - rig.rotation.y) * 0.05;
-    rig.rotation.x += (my * 0.12 - rig.rotation.x) * 0.05;
+    const tx = tilt && drag == null ? tilt.tiltX * 1.6 : mx, ty = tilt && drag == null ? tilt.tiltY * 1.4 : my;
+    rig.rotation.y += (tx * 0.35 - rig.rotation.y) * 0.05;
+    rig.rotation.x += (ty * 0.12 - rig.rotation.x) * 0.05;
+    bag.rotation.z += ((tilt ? -tilt.tiltX * 0.25 : 0) - bag.rotation.z) * 0.08;
     bag.rotation.y += spinVel + 0.002 * k;
     spinVel *= 0.94;
     jump *= 0.92;

@@ -97,9 +97,30 @@ async function idbGet(k) { const d = await idb; return new Promise((res) => { co
 async function idbSet(k, v) { const d = await idb; return new Promise((res) => { const t = d.transaction('blobs', 'readwrite'); v == null ? t.objectStore('blobs').delete(k) : t.objectStore('blobs').put(v, k); t.oncomplete = () => res(true); t.onerror = () => res(false); }); }
 
 // ---------- Prix ----------
+// Prix en devise étrangère : si le prix d'origine n'a pas bougé, on garde le prix en euros
+// déjà connu (sinon chaque variation du taux de change ressemblerait à une promo).
+function keepFx(item, info) {
+  if (!info || !info.ok) return info;
+  const a = item.priceOrig, b = info.priceOrig;
+  // article ajouté avant la conversion : son prix était en devise étrangère, on convertit l'historique
+  if (!a && b && info.fx?.rate && item.price != null && Math.abs(item.price - b.amount) < 0.005) {
+    const k = info.fx.rate, c = (n) => (n == null ? n : Math.round(n * k * 100) / 100);
+    item.price = c(item.price); item.listPrice = c(item.listPrice); item.targetPrice = c(item.targetPrice);
+    for (const h of item.history || []) h.p = c(h.p);
+    item.currency = 'EUR';
+    info.price = item.price;
+    if (info.listPrice && item.listPrice) info.listPrice = item.listPrice;
+  } else if (a && b && a.currency === b.currency && Math.abs(a.amount - b.amount) < 0.005 && item.price != null) {
+    info.price = item.price;
+    if (info.listPrice && item.listPrice) info.listPrice = item.listPrice;
+  }
+  if (b) { item.priceOrig = b; item.fx = info.fx; } else { delete item.priceOrig; delete item.fx; }
+  if (info.options?.length && !item.options?.length) item.options = info.options;
+  return info;
+}
 async function checkItem(item) {
   const now = new Date().toISOString();
-  const info = await fetchProduct(item.url);
+  const info = keepFx(item, await fetchProduct(item.url));
   if (info.ok && info.price) {
     if (!item.image && info.image) item.image = info.image;
     if (item.price && info.price < item.price - 0.009) item.lastDrop = { from: item.price, to: info.price, d: now };
@@ -134,6 +155,7 @@ const api = {
     const item = {
       id: uid(), url: info.url || url, title: extra.title || info.title || info.store || host || 'Article', image: info.image || null,
       price: extra.price ?? info.price ?? null, listPrice: info.listPrice || null, currency: info.currency || 'EUR', store: info.store || host, brand: info.brand || null,
+      priceOrig: info.priceOrig || undefined, fx: info.fx || undefined, options: info.options?.length ? info.options : undefined,
       category: extra.category || info.category || 'autre', size: '', targetPrice: null, priority: 2, addedAt: now, lastCheck: now,
       status: 'wish', history: info.price ? [{ d: now, p: info.price }] : [], alternatives: [],
       fetchError: info.ok && info.price ? null : (info.error || 'Prix non détecté — tu peux le saisir à la main'),

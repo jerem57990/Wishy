@@ -18,7 +18,13 @@ function card(it) {
   const where = it.best?.price === price ? it.best : { store: it.store, url: it.url };
   const ref = Math.max(it.listPrice || 0, it.seenHigh || 0);
   const pct = ref && price && ref > price ? Math.round((1 - price / ref) * 100) : 0;
-  const facts = [it.size && `Taille <b>${esc(it.size)}</b>`, it.priority >= 3 && 'Très envie ★★★'].filter(Boolean);
+  const j = it.jersey || {};
+  const flock = [j.name, j.number].filter(Boolean).join(' ');
+  const facts = [it.size && `Taille <b>${esc(it.size)}</b>`, flock && `Flocage <b>${esc(flock)}</b>`, j.patches?.length && `Patchs <b>${esc(j.patches.join(', '))}</b>`,
+    ...Object.entries(j.shop || {}).filter(([, v]) => v).map(([k, v]) => `${esc(k)} <b>${esc(v)}</b>`),
+    j.version && flock && `Version <b>${esc(j.version)}</b>`, j.sleeves === 'longues' && 'Manches longues',
+    it.scent?.top?.length && `Notes <b>${esc([...(it.scent.top || []), ...(it.scent.heart || []), ...(it.scent.base || [])].slice(0, 6).join(', '))}</b>`,
+    it.priority >= 3 && 'Très envie ★★★'].filter(Boolean);
   return `<li class="sh-card${it.status === 'bought' ? ' bought' : ''}">
     <a class="sh-img" href="${esc(safeUrl(where.url))}" target="_blank" rel="noopener noreferrer"><span class="sh-ph" aria-hidden="true">${c[1]}</span>${it.image ? `<img src="${esc(it.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}<span class="sh-cat">${c[1]} ${c[0]}</span>${it.status === 'bought' ? '<span class="sh-bought">Déjà acheté</span>' : ''}</a>
     <div class="sh-body">

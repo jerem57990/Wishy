@@ -194,6 +194,94 @@ function extract(html, url) {
   return res;
 }
 
+// ---------- Options du produit (taille, badge/patch, flocage…) ----------
+const CJK = /[　-鿿＀-￯]/;
+// retire les précisions en chinois entre parenthèses : "Allianz (左袖广告)" → "Allianz"
+const cleanLabel = (t) => decode(String(t || '')).replace(/\s*[（(][^()（）]*[)）]/g, (m) => (CJK.test(m) ? '' : m)).replace(/\s+/g, ' ').trim();
+
+function extractOptions(html) {
+  const groups = [];
+  // Boutiques "ymcart" (kkgool, et beaucoup de boutiques de maillots) : var goods_sale_prop_str='{…}'
+  const m = html.match(/goods_sale_prop_str\s*=\s*'((?:[^'\\]|\\.)*)'/);
+  if (m) {
+    try {
+      const props = JSON.parse(m[1].replace(/\\(.)/g, '$1'));
+      const all = Object.values(props);
+      for (const g of all.filter((x) => String(x.parent_id) === '0').sort((a, b) => +a.listorder - +b.listorder)) {
+        const values = all.filter((x) => String(x.parent_id) === String(g.id)).sort((a, b) => +a.listorder - +b.listorder)
+          .map((x) => ({ label: cleanLabel(x.base_name), add: +x.price || 0, image: x.image || undefined }))
+          .filter((v) => v.label);
+        if (values.length) groups.push({ name: cleanLabel(g.base_name), values });
+      }
+    } catch (_) { /* format inattendu */ }
+  }
+  // Listes déroulantes génériques nommées comme des options
+  if (!groups.length) {
+    const re = /<select[^>]*(?:name|id)=["']([^"']*(?:option|attribute|variant|size|taille|badge|patch|flocage|custom|personal)[^"']*)["'][^>]*>([\s\S]*?)<\/select>/gi;
+    let s;
+    while ((s = re.exec(html)) && groups.length < 6) {
+      const values = [...s[2].matchAll(/<option[^>]*value=["']([^"']*)["'][^>]*>([^<]*)</gi)]
+        .filter((o) => o[1] && !/^(choose|choisir|select|sélectionner|--)/i.test(o[2].trim()))
+        .map((o) => ({ label: cleanLabel(o[2]), add: 0 })).filter((v) => v.label);
+      if (values.length > 1) groups.push({ name: cleanLabel(s[1].replace(/^.*\[|\]$/g, '').replace(/[_-]+/g, ' ')), values });
+    }
+  }
+  return groups.slice(0, 8);
+}
+
+// ---------- Conversion de devise (tout est affiché en euros) ----------
+const FALLBACK_RATES = { USD: 0.86, GBP: 1.15, CHF: 1.07, CAD: 0.62, AUD: 0.57, JPY: 0.0058, CNY: 0.12, HKD: 0.11, SEK: 0.09, DKK: 0.134, PLN: 0.235 };
+let rateCache = { at: 0, rates: null };
+async function toEurRate(cur) {
+  cur = String(cur || 'EUR').toUpperCase();
+  if (cur === 'EUR') return 1;
+  if (!rateCache.rates || Date.now() - rateCache.at > 12 * 3600e3) {
+    try {
+      const r = await fetch('https://open.er-api.com/v6/latest/EUR', { headers: { Accept: 'application/json' } });
+      const j = await r.json();
+      if (j && j.rates) rateCache = { at: Date.now(), rates: j.rates };
+    } catch (_) { /* hors ligne : taux de secours */ }
+  }
+  const r = rateCache.rates?.[cur];
+  return r ? 1 / r : FALLBACK_RATES[cur] || null;
+}
+async function normalizeCurrency(data) {
+  const cur = String(data.currency || 'EUR').toUpperCase();
+  if (cur === 'EUR') return data;
+  const rate = await toEurRate(cur);
+  if (!rate) return data;
+  const conv = (n) => (n == null ? n : Math.round(n * rate * 100) / 100);
+  data.priceOrig = data.price != null ? { amount: data.price, currency: cur } : null;
+  data.price = conv(data.price);
+  data.listPrice = conv(data.listPrice);
+  for (const g of data.options || []) for (const v of g.values) if (v.add) { v.addOrig = v.add; v.add = conv(v.add); }
+  data.currency = 'EUR';
+  data.fx = { from: cur, rate: Math.round(rate * 10000) / 10000 };
+  return data;
+}
+
+// Prix en devise étrangère : si le prix d'origine n'a pas bougé, on garde le prix en euros
+// déjà connu (sinon chaque variation du taux de change ressemblerait à une promo).
+function keepFx(item, info) {
+  if (!info || !info.ok) return info;
+  const a = item.priceOrig, b = info.priceOrig;
+  // article ajouté avant la conversion : son prix était en devise étrangère, on convertit l'historique
+  if (!a && b && info.fx?.rate && item.price != null && Math.abs(item.price - b.amount) < 0.005) {
+    const k = info.fx.rate, c = (n) => (n == null ? n : Math.round(n * k * 100) / 100);
+    item.price = c(item.price); item.listPrice = c(item.listPrice); item.targetPrice = c(item.targetPrice);
+    for (const h of item.history || []) h.p = c(h.p);
+    item.currency = 'EUR';
+    info.price = item.price;
+    if (info.listPrice && item.listPrice) info.listPrice = item.listPrice;
+  } else if (a && b && a.currency === b.currency && Math.abs(a.amount - b.amount) < 0.005 && item.price != null) {
+    info.price = item.price;
+    if (info.listPrice && item.listPrice) info.listPrice = item.listPrice;
+  }
+  if (b) { item.priceOrig = b; item.fx = info.fx; } else { delete item.priceOrig; delete item.fx; }
+  if (info.options?.length && !item.options?.length) item.options = info.options;
+  return info;
+}
+
 const isShopify = (html) => /cdn\.shopify\.com|Shopify\.theme|shopify-section/i.test(html);
 async function shopifyEnrich(pageUrl, res, signal) {
   try {
@@ -211,6 +299,9 @@ async function shopifyEnrich(pageUrl, res, signal) {
     res.listPrice = plausibleList(cmp, res.price) || null;
     if (!res.image && p.featured_image) res.image = p.featured_image.startsWith('//') ? 'https:' + p.featured_image : p.featured_image;
     if (!res.title && p.title) res.title = p.title;
+    if (!res.options?.length && Array.isArray(p.options)) {
+      res.options = p.options.filter((o) => o && o.name && o.values?.length > 1 && !/^title$/i.test(o.name)).map((o) => ({ name: o.name, values: o.values.map((v) => ({ label: String(v), add: 0 })) }));
+    }
   } catch (_) { /* boutique Shopify sans JSON public : on garde la lecture de la page */ }
 }
 
@@ -230,7 +321,9 @@ async function fetchProduct(url) {
     });
     const html = await r.text();
     const data = extract(html, r.url || url);
+    data.options = extractOptions(html);
     if (isShopify(html)) await shopifyEnrich(r.url || url, data, ctrl.signal);
+    await normalizeCurrency(data);
     let host = '';
     try { host = new URL(r.url || url).hostname.replace(/^www\./, ''); } catch (_) {}
     return { ok: true, status: r.status, url: r.url || url, store: host, category: guessCategory(url, data.title), ...data };
@@ -243,4 +336,4 @@ async function fetchProduct(url) {
   }
 }
 
-export { fetchProduct, extract, guessCategory, parsePrice };
+export { keepFx, fetchProduct, extract, extractOptions, guessCategory, parsePrice, normalizeCurrency };

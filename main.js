@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, globalShortcut, clipboard, shell, nativeImage, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { fetchProduct } = require('./scraper');
+const { fetchProduct, keepFx } = require('./scraper');
 const { tryOn, download } = require('./tryon');
 const { autoUpdater } = require('electron-updater');
 const cloud = require('./cloud');
@@ -113,6 +113,9 @@ async function addItem(url, extra = {}) {
     price: extra.price ?? info.price ?? null,
     listPrice: info.listPrice || null,
     currency: info.currency || 'EUR',
+    priceOrig: info.priceOrig || undefined,
+    fx: info.fx || undefined,
+    options: info.options?.length ? info.options : undefined,
     store: info.store,
     brand: info.brand || null,
     category: extra.category || info.category || 'autre',
@@ -163,7 +166,7 @@ function notifyDrop(item, oldP, newP, where) {
 
 async function checkItem(item) {
   const now = new Date().toISOString();
-  const info = await fetchProduct(item.url);
+  const info = keepFx(item, await fetchProduct(item.url));
   if (info.ok && item.needsFetch) {
     // article ajouté depuis l'iPhone dont la fiche n'a pas pu être lue dans le cloud
     if (!item.titleEdited && info.title) item.title = info.title;
