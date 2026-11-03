@@ -3,7 +3,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { cors, json } from '../_shared/http.js';
 
-const PUBLIC_FIELDS = ['title', 'image', 'price', 'listPrice', 'currency', 'store', 'brand', 'url', 'size', 'notes', 'category', 'priority', 'status', 'piece', 'model3d', 'jersey', 'scent'];
+const PUBLIC_FIELDS = ['title', 'image', 'price', 'listPrice', 'currency', 'store', 'brand', 'url', 'size', 'notes', 'category', 'priority', 'status', 'piece', 'jersey', 'scent'];
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -25,7 +25,6 @@ Deno.serve(async (req) => {
     .sort((a, b) => order.get(a.id) - order.get(b.id))
     .map((r) => {
       const it = Object.fromEntries(PUBLIC_FIELDS.filter((k) => r.data[k] != null && r.data[k] !== '').map((k) => [k, r.data[k]]));
-      if (it.model3d && !String(it.model3d).startsWith('http')) delete it.model3d; // modèle resté sur le PC
       // prix le plus bas parmi les autres boutiques suivies
       const alt = (r.data.alternatives || []).filter((a) => a.price && (!it.price || a.price < it.price)).sort((a, b) => a.price - b.price)[0];
       if (alt) it.best = { price: alt.price, store: alt.store, url: alt.url };

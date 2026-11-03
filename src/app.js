@@ -286,7 +286,6 @@ function rowHTML(it) {
   const badges = [];
   if (d) badges.push(`<span class="pill drop" title="${d.onSite ? 'Prix barré affiché par la boutique' : 'Baisse depuis l\'ajout'}">−${d.pct} %</span>`);
   if (atTarget(it)) badges.push('<span class="pill target">Prix cible</span>');
-  if (it.model3d) badges.push('<span class="pill p3d" title="Disponible en 3D">3D</span>');
   if (it.status === 'bought') badges.push('<span class="pill bought">Acheté</span>');
   const otherShop = best && best.store !== it.store ? ` · moins cher chez ${esc(best.store)}` : '';
   const on = ui.sel.has(it.id);
@@ -768,11 +767,8 @@ function openDrawer(id, refreshOnly = false) {
   const alts = [{ store: it.store, price: it.price, url: it.url, main: true }, ...(it.alternatives || []).map((a, i) => ({ ...a, idx: i }))];
   const piece = pieceOf(it);
 
-  const keep = viewer3d.id === it.id && viewer3d.src === it.model3d && ui.view3d !== 'photo' ? viewer3d.host : null;
-  const show3d = !!it.model3d && ui.view3d !== 'photo';
   $('#drawerBody').innerHTML = `
-    <div class="d-img ${show3d ? 'is3d' : ''}">${show3d ? '<div class="v3d" id="v3d"><span class="v3d-load">Chargement du modèle 3D…</span></div>' : it.image ? `<img src="${esc(it.image)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith('${c.emoji}')">` : c.emoji}
-      ${it.model3d ? `<div class="v3d-tools"><div class="seg"><button data-v3d="3d" class="${show3d ? 'on' : ''}">3D</button><button data-v3d="photo" class="${show3d ? '' : 'on'}">Photo</button></div>${AR_OK ? '<button class="ar-btn" data-act="ar"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>Voir chez moi</button>' : ''}</div>` : ''}</div>
+    <div class="d-img">${it.image ? `<img src="${esc(it.image)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith('${c.emoji}')">` : c.emoji}</div>
     <div class="d-body">
       <div class="d-store"><span>${c.emoji} ${c.label}</span><span>·</span><span>${esc(it.store || '')}</span><span>·</span><span>vérifié ${ago(it.lastCheck)}</span></div>
       <label class="d-title-wrap"><span class="sr">Nom de l'article</span><textarea class="d-title" id="dTitle" rows="1" spellcheck="false" title="Clique pour renommer">${esc(it.title)}</textarea><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg></label>
@@ -787,7 +783,6 @@ function openDrawer(id, refreshOnly = false) {
 
       ${isJersey(it) ? jerseySectionHTML(it) : ''}
       ${it.category === 'parfums' ? scentSectionHTML(it) : ''}
-      ${!it.model3d && (it.image || it.tryonImage) ? `<div class="d-section make3d" id="make3d"><div><h4>En 3D</h4><p class="muted">Transforme la photo en objet 3D à faire tourner du doigt${AR_OK ? ', et à poser chez toi en réalité augmentée' : ''}. Idéal pour les chaussures, parfums, casquettes et objets. Compte 30 s à 1 min.</p></div><button class="btn-ink" data-act="make3d" ${making3d ? 'disabled' : ''}>Créer en 3D</button><div class="tryon-progress" id="m3dProgress" ${making3d === it.id ? '' : 'hidden'}><div class="tp-track"><i id="m3dBar" style="width:${last3d.pct}%"></i></div><span id="m3dText">${esc(last3d.text)}</span></div></div>` : ''}
       <div class="d-section"><h4>Historique du prix</h4>${historyChart(it)}</div>
       ${isClothing(it) ? '<div class="d-section" id="dColors"><h4>Couleurs et combos Pantone</h4><p class="muted" style="font-size:13px">Analyse de la photo…</p></div>' : ''}
 
@@ -815,11 +810,9 @@ function openDrawer(id, refreshOnly = false) {
         <h4>Listes</h4>
         <div class="d-lists">${(db.lists || []).filter((l) => l.itemIds.includes(it.id)).map((l) => `<button class="lchip" data-golist="${l.id}">${esc(l.name)}</button>`).join('')}<button class="lchip add" data-dact="addto">＋ Ajouter à une liste</button></div>
       </div>
-      ${it.model3d ? '<button class="linkish" data-act="make3d">Recréer le modèle 3D</button>' : ''}
       <button class="danger" data-act="delete">Retirer de la wishlist</button>
     </div>`;
   if (isClothing(it)) fillColors(it);
-  if (show3d) mount3d(it, keep);
   if (isJersey(it)) mountJersey(it);
   if (it.category === 'parfums') mountScent(it);
   if (!refreshOnly) {
@@ -979,61 +972,10 @@ async function pickScent(it, id) {
   if (p) update(it.id, { scent: scentFrom(p) });
 }
 
-// ---------- 3D ----------
-const AR_OK = /iP(hone|ad|od)|Android/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const viewer3d = { id: null, src: null, host: null, handle: null };
-let making3d = null;
-const last3d = { pct: 3, text: 'Préparation…' };
-function dispose3d() { viewer3d.handle?.dispose(); Object.assign(viewer3d, { id: null, src: null, host: null, handle: null }); }
-async function modelSource(it) {
-  if (String(it.model3d).startsWith('local:')) return api.modelData(it.id);
-  return it.model3d;
-}
-async function mount3d(it, keep) {
-  const slot = $('#v3d');
-  if (!slot) return;
-  if (keep) { slot.replaceWith(keep); return; }
-  dispose3d();
-  try {
-    const { mountViewer } = await import('./viewer3d.js');
-    const src = await modelSource(it);
-    if (!src || ui.openId !== it.id || !$('#v3d')) return;
-    const host = $('#v3d');
-    host.innerHTML = '';
-    viewer3d.handle = await mountViewer(host, src);
-    Object.assign(viewer3d, { id: it.id, src: it.model3d, host });
-  } catch (e) {
-    console.error(e);
-    if ($('#v3d')) $('#v3d').innerHTML = '<span class="v3d-load">Impossible de charger le modèle 3D.</span>';
-  }
-}
-async function make3d(it) {
-  if (making3d) return toast('Une création 3D est déjà en cours', 'err');
-  making3d = it.id;
-  Object.assign(last3d, { pct: 3, text: 'Préparation…' });
-  const p = $('#m3dProgress');
-  if (p) { p.hidden = false; $('#m3dBar').style.width = '3%'; $('#m3dText').textContent = 'Préparation…'; }
-  $$('[data-act="make3d"]').forEach((b) => (b.disabled = true));
-  const r = await api.make3D(it.id);
-  making3d = null;
-  if (r.ok) { ui.view3d = '3d'; db = await api.getDb(); render(); toast('Modèle 3D prêt ✨'); confetti($('.drawer-card') || document.body); }
-  else { toast(r.error, 'err'); render(); }
-}
-async function openAR3d(it) {
-  try {
-    const { openAR } = await import('./viewer3d.js');
-    toast('Préparation de la réalité augmentée…');
-    const ok = await openAR({ src: await modelSource(it), publicUrl: String(it.model3d).startsWith('http') ? it.model3d : null, key: it.id + it.model3d, title: it.title });
-    if (!ok) toast('La réalité augmentée est disponible sur iPhone et Android', 'err');
-  } catch (e) { toast(`Réalité augmentée impossible : ${e.message}`, 'err'); }
-}
-
 function closeDrawer() {
-  dispose3d();
   jersey3d.handle?.dispose(); jersey3d.handle = null;
   disposeScent();
   ui.cmpScent = null;
-  ui.view3d = null;
   ui.openId = null;
   $('#drawer').classList.remove('open');
   $('#drawer').setAttribute('aria-hidden', 'true');
@@ -1205,10 +1147,6 @@ $('#drawer').addEventListener('click', async (e) => {
   }
   if (act === 'delete') { await api.deleteItem(it.id); closeDrawer(); db = await api.getDb(); render(); toast('Retiré de la wishlist'); }
   if (act === 'buy') openBuy(it);
-  if (act === 'make3d') { make3d(it); return; }
-  if (act === 'ar') { openAR3d(it); return; }
-  const v3 = e.target.closest('[data-v3d]');
-  if (v3) { ui.view3d = v3.dataset.v3d; if (ui.view3d === 'photo') dispose3d(); openDrawer(it.id, true); return; }
   const chipEl = e.target.closest('.pchip');
   if (chipEl) {
     if (chipEl.dataset.main && chipEl.dataset.main !== mainColor(it)) { update(it.id, { colorOverride: chipEl.dataset.main }); return; }
@@ -1448,7 +1386,6 @@ if (api.getUpdate) {
   $('#updateBtn').addEventListener('click', () => api.installUpdate());
   $('#checkUpdateBtn').addEventListener('click', async () => renderUpdate(await api.checkUpdate()));
 } else { $('#appVersion').textContent = 'démo'; $('#checkUpdateBtn').disabled = true; }
-api.on('3d:progress', ({ text, pct }) => { Object.assign(last3d, { pct: Math.max(3, pct), text: `${text}  ${pct ? pct + ' %' : ''}` }); const b = $('#m3dBar'); if (!b) return; $('#m3dProgress').hidden = false; b.style.width = Math.max(3, pct) + '%'; $('#m3dText').textContent = `${text}  ${pct ? pct + ' %' : ''}`; });
 api.on('tryon:progress', ({ text, pct }) => { $('#tpBar').style.width = Math.max(2, pct) + '%'; $('#tpText').textContent = `${text}  ${pct ? pct + ' %' : ''}`; });
 
 // ---------------------------------------------------------------------------

@@ -13,7 +13,6 @@ fs.mkdirSync(path.join(out, 'vendor'), { recursive: true });
 fs.cpSync(path.join(root, 'src'), out, { recursive: true });
 fs.cpSync(path.join(root, 'web'), out, { recursive: true });
 fs.copyFileSync(path.join(root, 'sync-core.mjs'), path.join(out, 'sync-core.mjs'));
-fs.copyFileSync(path.join(root, 'model3d-core.mjs'), path.join(out, 'model3d-core.mjs'));
 fs.mkdirSync(path.join(out, 'assets'), { recursive: true });
 fs.copyFileSync(path.join(root, 'assets', 'icon.png'), path.join(out, 'assets', 'icon.png'));
 fs.rmSync(path.join(out, 'demo-api.js'), { force: true });

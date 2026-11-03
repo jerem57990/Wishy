@@ -33,7 +33,6 @@ function card(it) {
       <p class="sh-price">${eur(price)}${pct ? ` <s>${eur(ref)}</s> <span class="pill drop">−${pct} %</span>` : ''}</p>
       ${facts.length ? `<p class="sh-facts">${facts.join(' · ')}</p>` : ''}
       ${it.notes ? `<p class="sh-note">${esc(it.notes)}</p>` : ''}
-      ${it.model3d ? `<button class="sh-3d" data-m3d="${esc(it.model3d)}" data-title="${esc(it.title)}"><b>3D</b> Voir en 3D</button>` : ''}
       <a class="btn-sun sh-go" href="${esc(safeUrl(where.url))}" target="_blank" rel="noopener noreferrer">Voir chez ${esc(where.store || 'la boutique')}</a>
     </div>
   </li>`;
@@ -49,29 +48,6 @@ function render() {
 }
 
 $('#shFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; render(); } });
-
-// Visionneuse 3D (et réalité augmentée sur iPhone / Android)
-let viewer = null, current = null;
-const AR_OK = /iP(hone|ad|od)|Android/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-$('#shGrid').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-m3d]');
-  if (!b) return;
-  current = { src: b.dataset.m3d, title: b.dataset.title };
-  const dlg = $('#sh3d');
-  $('#sh3dTitle').textContent = current.title;
-  $('#sh3dAr').hidden = !AR_OK;
-  dlg.showModal();
-  const { mountViewer } = await import('./viewer3d.js');
-  viewer?.dispose();
-  $('#sh3dStage').innerHTML = '';
-  viewer = await mountViewer($('#sh3dStage'), current.src);
-});
-$('#sh3dAr').addEventListener('click', async () => {
-  const { openAR } = await import('./viewer3d.js');
-  await openAR({ src: current.src, publicUrl: current.src, key: current.src, title: current.title });
-});
-$('#sh3d').addEventListener('close', () => { viewer?.dispose(); viewer = null; });
-$('#sh3dClose').addEventListener('click', () => $('#sh3d').close());
 
 const token = new URLSearchParams(location.search).get('l');
 try {

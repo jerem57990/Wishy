@@ -32,16 +32,6 @@ body.share-page { overflow: auto; background: var(--cloud); }
 @media (max-width: 520px) { .sh-grid { grid-template-columns: 1fr 1fr; gap: 8px; } .sh-body { padding: 10px 12px 12px; } .sh-body h2 { font-size: 15px; } .sh-price { font-size: 18px; } .sh-go { padding: 8px 10px; font-size: 13px; } }
 
 /* Bouton et fenêtre 3D */
-.sh-3d { align-self: flex-start; margin-top: 8px; display: inline-flex; gap: 6px; align-items: center; font-weight: 700; font-size: 13px; background: var(--cloud); border-radius: 99px; padding: 6px 12px; }
-.sh-3d b { background: var(--ink); color: var(--sun); border-radius: 99px; padding: 0 6px; font-size: 11px; }
-.sh3d { border: 0; padding: 0; width: min(560px, 94vw); border-radius: 24px; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(23, 23, 28, .5); }
-.sh3d::backdrop { background: rgba(23, 23, 28, .45); }
-.sh3d-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 12px 10px 18px; }
-.sh3d-head strong { font: 700 17px var(--font-display); }
-.sh3d-stage { position: relative; height: min(62vh, 460px); background: radial-gradient(circle at 50% 35%, #fffbe6, var(--cloud) 75%); touch-action: none; }
-.sh3d-stage canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
-.sh3d-foot { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px 14px 18px; font-size: 13px; color: var(--muted); }
-.ar-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--sun); color: var(--ink); border-radius: 99px; padding: 8px 14px; font-weight: 700; font-size: 14px; }
 
 /* Ouverture du cadeau */
 body.gifting { overflow: hidden; }
