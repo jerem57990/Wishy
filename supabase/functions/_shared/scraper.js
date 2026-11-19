@@ -9,9 +9,9 @@ const UA =
 
 const CATEGORY_RULES = [
   { cat: 'parfums', domains: ['sephora', 'nocibe', 'marionnaud', 'notino', 'douglas', 'scento', 'origines-parfums', 'parfumdo', 'beautysuccess', 'lookfantastic', 'fragrantica', 'jomashop', 'guerlain', 'diptyque', 'byredo', 'creedfragrances'], words: ['parfum', 'eau de toilette', 'eau de cologne', 'cologne', 'edp', 'edt', 'extrait', 'fragrance', 'elixir', 'élixir', 'vaporisateur', 'parfum ml'] },
-  { cat: 'jeux', domains: ['instant-gaming', 'micromania', 'steampowered', 'store.steampowered', 'playstation', 'nintendo', 'xbox', 'epicgames', 'gog.com', 'eneba'], words: ['ps5', 'ps4', 'xbox', 'switch', 'nintendo', 'jeu vidéo', 'steam', 'playstation', 'manette', 'edition', 'game'] },
+  { cat: 'jeux', domains: ['instant-gaming', 'micromania', 'steampowered', 'store.steampowered', 'playstation', 'nintendo', 'xbox', 'epicgames', 'gog.com', 'eneba'], words: ['ps5', 'ps4', 'xbox', 'nintendo switch', 'switch 2', 'nintendo', 'jeu vidéo', 'steam', 'playstation', 'manette', 'edition', 'game'] },
   { cat: 'vetements', domains: ['zalando', 'asos', 'nike', 'adidas', 'zara', 'hm.com', 'uniqlo', 'courir', 'jdsports', 'footlocker', 'snipes', 'vinted', 'shein', 'celio', 'jules', 'kiabi', 'sezane', 'lacoste', 'decathlon'], words: ['t-shirt', 'tee', 'pull', 'sweat', 'hoodie', 'veste', 'jean', 'pantalon', 'chemise', 'sneakers', 'baskets', 'chaussures', 'manteau', 'short', 'polo', 'jogging', 'doudoune', 'maillot', 'casquette', 'jersey', 'soccer', 'trikot', 'camiseta'] },
-  { cat: 'tech', domains: ['ldlc', 'materiel.net', 'topachat', 'boulanger', 'darty', 'apple.com', 'samsung', 'backmarket', 'rueducommerce'], words: ['iphone', 'samsung', 'écran', 'ecran', 'casque', 'clavier', 'souris', 'pc ', 'laptop', 'ordinateur', 'ssd', 'rtx', 'airpods', 'tv ', 'montre connectée', 'enceinte'] },
+  { cat: 'tech', domains: ['ldlc', 'materiel.net', 'topachat', 'boulanger', 'darty', 'apple.com', 'samsung', 'backmarket', 'rueducommerce'], words: ['iphone', 'samsung', 'écran', 'ecran', 'casque', 'clavier', 'souris', 'pc ', 'laptop', 'ordinateur', 'ssd', 'rtx', 'airpods', 'tv ', 'montre connectée', 'enceinte', 'usb', 'kvm', 'hub', 'câble', 'cable', 'chargeur', 'disque dur'] },
   { cat: 'maison', domains: ['ikea', 'maisonsdumonde', 'leroymerlin', 'castorama', 'conforama', 'but.fr'], words: ['lampe', 'canapé', 'table', 'chaise', 'déco', 'coussin', 'tapis', 'cuisine'] },
   { cat: 'livres', domains: ['decitre', 'cultura', 'leslibraires'], words: ['livre', 'roman', 'manga', 'tome', 'broché', 'bd '] },
   { cat: 'sport', domains: ['decathlon', 'intersport', 'go-sport'], words: ['ballon', 'vélo', 'velo', 'fitness', 'haltère', 'running', 'crampons'] },
@@ -164,7 +164,7 @@ function extract(html, url) {
     if (st) res.listPrice = res.listPrice || parsePrice(st[1]);
   }
   if (!res.price && /amazon\./i.test(url)) {
-    const m = html.match(/class=["']a-offscreen["'][^>]*>\s*([\d\s.,]+)\s*(?:€|&euro;)/i) || html.match(/"priceAmount"\s*:\s*([\d.]+)/);
+    const m = html.match(/"priceAmount"\s*:\s*([\d.]+)/) || html.match(/class=["']a-offscreen["'][^>]*>\s*(\d{1,5}(?:[.,]\d{2})?)\s*(?:€|&euro;)/i);
     if (m) res.price = parsePrice(m[1]);
     const t = html.match(/id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i);
     if (t) res.title = decode(t[1]);
@@ -282,6 +282,23 @@ function keepFx(item, info) {
   return info;
 }
 
+// Garde-fou : un prix qui est soudain multiplié ou divisé par plus de 3 est souvent une
+// erreur de lecture (page partielle, mauvais vendeur, « 25,99 » lu « 2599 »). On ne l'accepte
+// que s'il est confirmé à la vérification suivante.
+function guardPrice(item, info) {
+  if (!info || !info.ok || !info.price || !item.price) return info;
+  const r = info.price / item.price;
+  if (r > 3 || r < 1 / 3) {
+    if (item.suspectPrice && Math.abs(item.suspectPrice - info.price) < 0.01) { delete item.suspectPrice; return info; }
+    item.suspectPrice = info.price;
+    info.price = item.price;
+    info.listPrice = item.listPrice || null;
+    return info;
+  }
+  delete item.suspectPrice;
+  return info;
+}
+
 const isShopify = (html) => /cdn\.shopify\.com|Shopify\.theme|shopify-section/i.test(html);
 async function shopifyEnrich(pageUrl, res, signal) {
   try {
@@ -336,4 +353,4 @@ async function fetchProduct(url) {
   }
 }
 
-export { keepFx, fetchProduct, extract, extractOptions, guessCategory, parsePrice, normalizeCurrency };
+export { keepFx, guardPrice, fetchProduct, extract, extractOptions, guessCategory, parsePrice, normalizeCurrency };

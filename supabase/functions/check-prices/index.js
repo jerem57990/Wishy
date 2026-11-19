@@ -2,7 +2,7 @@
 // Met à jour les prix de tous les utilisateurs et envoie une notification push sur l'iPhone
 // quand un prix baisse ou atteint le prix cible. Complète aussi les articles ajoutés depuis l'iPhone.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { fetchProduct, keepFx } from '../_shared/scraper.js';
+import { fetchProduct, keepFx, guardPrice } from '../_shared/scraper.js';
 import { sendPush } from '../_shared/webpush.js';
 import { json } from '../_shared/http.js';
 
@@ -48,7 +48,7 @@ Deno.serve(async () => {
   async function work(row) {
     const it = { ...row.data };
     const now = new Date().toISOString();
-    const info = keepFx(it, await fetchProduct(it.url));
+    const info = guardPrice(it, keepFx(it, await fetchProduct(it.url)));
     if (info.ok && info.price) {
       if (row.needs_fetch) {
         if (!it.titleEdited && info.title) it.title = info.title;
@@ -81,7 +81,7 @@ Deno.serve(async () => {
     }
     for (const alt of it.alternatives || []) {
       const a = await fetchProduct(alt.url);
-      if (a.ok && a.price) { alt.price = a.price; alt.lastCheck = now; }
+      if (a.ok && a.price && (!alt.price || (a.price / alt.price <= 3 && a.price / alt.price >= 1 / 3))) { alt.price = a.price; alt.lastCheck = now; }
     }
     it.lastCheck = now;
     delete it.needsFetch;

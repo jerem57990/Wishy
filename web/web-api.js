@@ -117,9 +117,25 @@ function keepFx(item, info) {
   if (info.options?.length && !item.options?.length) item.options = info.options;
   return info;
 }
+// Garde-fou : un prix qui est soudain multiplié ou divisé par plus de 3 est souvent une
+// erreur de lecture (page partielle, mauvais vendeur, « 25,99 » lu « 2599 »). On ne l'accepte
+// que s'il est confirmé à la vérification suivante.
+function guardPrice(item, info) {
+  if (!info || !info.ok || !info.price || !item.price) return info;
+  const r = info.price / item.price;
+  if (r > 3 || r < 1 / 3) {
+    if (item.suspectPrice && Math.abs(item.suspectPrice - info.price) < 0.01) { delete item.suspectPrice; return info; }
+    item.suspectPrice = info.price;
+    info.price = item.price;
+    info.listPrice = item.listPrice || null;
+    return info;
+  }
+  delete item.suspectPrice;
+  return info;
+}
 async function checkItem(item) {
   const now = new Date().toISOString();
-  const info = keepFx(item, await fetchProduct(item.url));
+  const info = guardPrice(item, keepFx(item, await fetchProduct(item.url)));
   if (info.ok && info.price) {
     if (!item.image && info.image) item.image = info.image;
     if (item.price && info.price < item.price - 0.009) item.lastDrop = { from: item.price, to: info.price, d: now };
