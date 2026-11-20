@@ -587,3 +587,15 @@ body.maxed .drawer { inset: 0; border-radius: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Création manuelle */
+.manual-btn { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.manual-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.4; stroke-linecap: round; }
+.dlg select { border: 0; box-shadow: inset 0 0 0 1px var(--line); border-radius: 12px; padding: 10px 12px; font-size: 15px; color: var(--ink); background: #fff; }
+.dlg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dlg-row label { min-width: 0; }
+.dlg label.file-btn, .file-btn { position: relative; display: inline-flex; flex-direction: row; margin-top: 0; font-size: 14px; font-weight: 650; align-items: center; cursor: pointer; align-self: flex-start; color: var(--ink); }
+.m-photo { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.m-photo img { width: 56px; height: 56px; object-fit: cover; border-radius: 12px; }
+.price-edit { width: 140px; border: 0; box-shadow: inset 0 0 0 1px var(--line); border-radius: 14px; padding: 8px 12px; font: 800 30px var(--font-display); color: var(--ink); }
+.price-edit:focus { outline: 0; box-shadow: inset 0 0 0 2px var(--ink); }

@@ -47,7 +47,8 @@ const clone = () => structuredClone(db);
 
 export default {
   getDb: async () => clone(),
-  addItem: async (url) => {
+  addItem: async (url, extra = {}) => {
+    if (extra.manual) { const item = { id: uid(), manual: true, url: extra.url || null, title: extra.title, image: extra.image || null, price: extra.price ?? null, store: extra.store || null, category: extra.category || 'cadeaux', notes: extra.notes || '', priority: 2, addedAt: new Date().toISOString(), lastCheck: new Date().toISOString(), status: 'wish', history: extra.price ? [{ d: new Date().toISOString(), p: +extra.price }] : [], alternatives: [] }; db.items.unshift(item); return { ok: true, item }; }
     let host = 'boutique';
     try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { return { ok: false, error: "Ce n'est pas un lien valide" }; }
     const item = { id: uid(), url, title: 'Nouvel article ' + host, image: null, price: null, store: host, category: 'autre', priority: 2, addedAt: new Date().toISOString(), lastCheck: new Date().toISOString(), status: 'wish', history: [], alternatives: [], fetchError: 'Mode démo' };

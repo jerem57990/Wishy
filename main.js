@@ -97,7 +97,24 @@ function createTray() {
 }
 
 // ---------- Ajout d'articles ----------
+
+// Article créé à la main (carte cadeau, objet sans boutique en ligne…) : aucun prix à suivre
+function manualItem(extra, uid) {
+  const now = new Date().toISOString();
+  const price = extra.price != null && extra.price !== '' ? Math.round(+extra.price * 100) / 100 : null;
+  let store = (extra.store || '').trim();
+  const url = /^https?:\/\//i.test(extra.url || '') ? extra.url.trim() : null;
+  if (!store && url) { try { store = new URL(url).hostname.replace(/^www\./, ''); } catch (_) {} }
+  return {
+    id: uid(), manual: true, url, title: String(extra.title || 'Article').trim().slice(0, 140), image: extra.image || null,
+    price, listPrice: null, currency: 'EUR', store: store || null, brand: null, category: extra.category || 'cadeaux',
+    notes: (extra.notes || '').trim(), size: '', targetPrice: null, priority: extra.priority || 2, addedAt: now, lastCheck: now,
+    status: 'wish', history: price ? [{ d: now, p: price }] : [], alternatives: [], fetchError: null, titleEdited: true, categoryEdited: true,
+  };
+}
+
 async function addItem(url, extra = {}) {
+  if (extra.manual) { const item = manualItem(extra, uid); db.items.unshift(item); save(); return { ok: true, item }; }
   url = String(url || '').trim();
   if (!/^https?:\/\//i.test(url)) return { ok: false, error: "Ce n'est pas un lien valide" };
   const existing = db.items.find((i) => i.url === url);
@@ -210,7 +227,7 @@ async function checkPrices(manual = false) {
   if (win) win.webContents.send('checking', true);
   let n = 0;
   try {
-    for (const item of db.items.filter((i) => i.status === 'wish')) {
+    for (const item of db.items.filter((i) => i.status === 'wish' && !i.manual && i.url)) {
       await checkItem(item);
       n++;
       await sleep(1200); // on reste poli avec les sites
@@ -296,7 +313,7 @@ function registerIpc() {
     return { ok: true, item: it };
   });
   ipcMain.handle('item:delete', (_, id) => { db.items = db.items.filter((i) => i.id !== id); save(); return { ok: true }; });
-  ipcMain.handle('item:refresh', async (_, id) => { const it = db.items.find((i) => i.id === id); if (it) { await checkItem(it); save(); } return { ok: true, item: it }; });
+  ipcMain.handle('item:refresh', async (_, id) => { const it = db.items.find((i) => i.id === id); if (it && !it.manual && it.url) { await checkItem(it); save(); } return { ok: true, item: it }; });
   ipcMain.handle('item:addAlt', async (_, id, url) => {
     const it = db.items.find((i) => i.id === id);
     if (!it) return { ok: false };

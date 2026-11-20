@@ -28,7 +28,7 @@ Deno.serve(async () => {
   const { data: rows, error } = await sb.from('items').select('id,user_id,data,needs_fetch').eq('deleted', false);
   if (error) return json({ ok: false, error: error.message }, 500);
   const todo = rows
-    .filter((r) => r.needs_fetch || r.data?.status === 'wish')
+    .filter((r) => !r.data?.manual && r.data?.url && (r.needs_fetch || r.data?.status === 'wish'))
     .sort((a, b) => (b.needs_fetch - a.needs_fetch) || String(a.data?.lastCheck || '').localeCompare(String(b.data?.lastCheck || '')))
     .slice(0, MAX_ITEMS);
 

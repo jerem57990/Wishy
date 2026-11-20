@@ -20,6 +20,7 @@ const CATS = {
   livres: { label: 'Livres', emoji: '📚', color: '#a35cff' },
   sport: { label: 'Sport', emoji: '⚽', color: '#ff8a3d' },
   parfums: { label: 'Parfums', emoji: '🌸', color: '#e05aa8' },
+  cadeaux: { label: 'Cartes cadeaux', emoji: '🎁', color: '#ff6b4a' },
   autre: { label: 'Autre', emoji: '✨', color: '#f5b800' },
 };
 
@@ -741,23 +742,23 @@ function openDrawer(id, refreshOnly = false) {
   $('#drawerBody').innerHTML = `
     <div class="d-img">${it.image ? `<img src="${esc(it.image)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith('${c.emoji}')">` : c.emoji}</div>
     <div class="d-body">
-      <div class="d-store"><span>${c.emoji} ${c.label}</span><span>·</span><span>${esc(it.store || '')}</span><span>·</span><span>vérifié ${ago(it.lastCheck)}</span></div>
+      <div class="d-store"><span>${c.emoji} ${c.label}</span><span>·</span>${it.store ? `<span>${esc(it.store)}</span><span>·</span>` : ''}<span>${it.manual ? 'créé à la main' : `vérifié ${ago(it.lastCheck)}`}</span></div>
       <label class="d-title-wrap"><span class="sr">Nom de l'article</span><textarea class="d-title" id="dTitle" rows="1" spellcheck="false" title="Clique pour renommer">${esc(it.title)}</textarea><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg></label>
-      <div class="d-price">${it.price == null ? `<input type="number" step="0.01" id="dManualPrice" placeholder="Prix €" aria-label="Saisir le prix" />` : `<strong>${eur(best?.price)}</strong>`}
+      <div class="d-price">${it.manual ? `<input type="number" step="0.01" min="0" id="dEditPrice" class="price-edit" value="${it.price ?? ''}" placeholder="Prix €" aria-label="Prix" /><span class="muted">€</span>` : it.price == null ? `<input type="number" step="0.01" id="dManualPrice" placeholder="Prix €" aria-label="Saisir le prix" />` : `<strong>${eur(best?.price)}</strong>`}
         ${d ? `<s class="muted">${eur(d.from)}</s><span class="pill drop">−${d.pct} %${d.onSite ? ' sur le site' : ''}</span>` : ''}${atTarget(it) ? '<span class="pill target">Prix cible atteint</span>' : ''}</div>
       ${it.fetchError && it.price == null ? `<p class="muted" style="font-size:13px;margin-top:6px">Le site n'a pas laissé lire le prix automatiquement. Saisis-le une fois ; Wishy réessaiera à chaque vérification.</p>` : ''}
       <div class="d-actions">
         ${it.status === 'wish' ? '<button class="btn-sun" data-act="buy">Marquer comme acheté</button>' : `<span class="pill bought">Acheté le ${new Date(it.boughtAt).toLocaleDateString('fr-FR')} · ${eur(it.boughtPrice)}</span>`}
-        <button class="btn-ghost" data-act="open">Ouvrir ${best && best.store !== it.store ? 'le moins cher' : 'la boutique'}</button>
-        <button class="btn-ghost" data-act="refresh"><span class="spin"></span>Actualiser</button>
+        ${it.url ? `<button class="btn-ghost" data-act="open">Ouvrir ${best && best.store !== it.store ? 'le moins cher' : 'la boutique'}</button>` : ''}
+        ${it.manual ? '' : '<button class="btn-ghost" data-act="refresh"><span class="spin"></span>Actualiser</button>'}
       </div>
 
       ${isJersey(it) ? jerseySectionHTML(it) : ''}
       ${it.category === 'parfums' ? scentSectionHTML(it) : ''}
-      <div class="d-section"><h4>Historique du prix</h4>${historyChart(it)}</div>
+      ${it.manual ? manualSectionHTML(it) : `<div class="d-section"><h4>Historique du prix</h4>${historyChart(it)}</div>`}
       ${isClothing(it) ? '<div class="d-section" id="dColors"><h4>Couleurs et combos Pantone</h4><p class="muted" style="font-size:13px">Analyse de la photo…</p></div>' : ''}
 
-      <div class="d-section">
+      <div class="d-section" ${it.manual ? 'hidden' : ''}>
         <h4>Le même ailleurs</h4>
         <ul class="alts">${alts.map((a) => `<li class="${best && a.price === best.price && alts.filter((x) => x.price).length > 1 ? 'best' : ''}"><span class="a-store" data-url="${esc(a.url)}">${esc(a.store)}${a.main ? ' <span class="muted" style="font-weight:400">(lien d\'origine)</span>' : ''}</span><strong>${eur(a.price)}</strong>${a.main ? '' : `<button class="a-x" data-alt="${a.idx}" aria-label="Retirer ce site">✕</button>`}</li>`).join('')}</ul>
         <form class="alt-form" id="altForm"><input id="altUrl" placeholder="Colle le lien du même article sur un autre site" aria-label="Lien sur un autre site" /><button class="btn-ink" type="submit">Suivre</button></form>
@@ -1163,6 +1164,10 @@ $('#drawer').addEventListener('change', (e) => {
   if (e.target.id === 'scentPick') { const it = db.items.find((i) => i.id === id); if (it) pickScent(it, e.target.value); }
   if (e.target.id === 'dTryImg') update(id, { tryonImage: e.target.value.trim() || null });
   if (e.target.id === 'dManualPrice' && e.target.value) update(id, { price: +e.target.value });
+  if (e.target.id === 'dEditPrice') update(id, { price: e.target.value === '' ? null : Math.round(+e.target.value * 100) / 100 });
+  if (e.target.id === 'dEditStore') update(id, { store: e.target.value.trim() || null });
+  if (e.target.id === 'dEditUrl') { const v = e.target.value.trim(); update(id, { url: /^https?:\/\//i.test(v) ? v : null }); }
+  if (e.target.id === 'dEditPhoto' && e.target.files[0]) photoToDataUrl(e.target.files[0]).then((img) => img && update(id, { image: img }));
 });
 $('#drawer').addEventListener('submit', async (e) => {
   if (e.target.id !== 'altForm') return;
@@ -1178,6 +1183,67 @@ document.addEventListener('keydown', (e) => {
   if (e.target.id === 'dTitle' && e.key === 'Enter') { e.preventDefault(); e.target.blur(); return; }
   if (e.target.id === 'dTitle' && e.key === 'Escape') { e.target.value = db.items.find((i) => i.id === ui.openId)?.title || ''; e.target.blur(); return; }
   if (e.key === 'Escape' && ui.openId) closeDrawer();
+});
+
+// ---------- Article créé à la main (carte cadeau…) ----------
+function manualSectionHTML(it) {
+  return `<div class="d-section"><h4>Détails</h4><div class="d-grid">
+    <label class="field">Boutique / enseigne<input id="dEditStore" value="${esc(it.store || '')}" placeholder="Fnac, Sephora…" /></label>
+    <label class="field">Lien (facultatif)<input id="dEditUrl" value="${esc(it.url || '')}" placeholder="https://…" inputmode="url" /></label>
+    <div class="field" style="grid-column:1/-1">Photo<label class="file-btn btn-ghost small">Changer la photo<input type="file" id="dEditPhoto" accept="image/*" hidden /></label></div>
+  </div><p class="fineprint">Article créé à la main : son prix n'est pas suivi automatiquement.</p></div>`;
+}
+// Photo réduite (600 px max) pour rester légère dans la synchro
+function photoToDataUrl(file) {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) return resolve(null);
+    const r = new FileReader();
+    r.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 600 / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        const x = cv.getContext('2d');
+        x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height);
+        x.drawImage(img, 0, 0, cv.width, cv.height);
+        resolve(cv.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => resolve(null);
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+let manualPhoto = null;
+function openManual() {
+  $('#manualForm').reset();
+  manualPhoto = null;
+  $('#mPhotoPrev').hidden = true;
+  $('#mCat').innerHTML = Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${k === 'cadeaux' ? 'selected' : ''}>${v.emoji} ${v.label}</option>`).join('');
+  $('#manualDlg').showModal();
+  setTimeout(() => $('#mTitle').focus(), 50);
+}
+$('#manualBtn').addEventListener('click', openManual);
+$('#mPhoto').addEventListener('change', async (e) => {
+  manualPhoto = await photoToDataUrl(e.target.files[0]);
+  if (manualPhoto) { $('#mPhotoPrev').src = manualPhoto; $('#mPhotoPrev').hidden = false; }
+});
+$('#manualDlg').addEventListener('close', async () => {
+  if ($('#manualDlg').returnValue !== 'ok') return;
+  const price = $('#mPrice').value;
+  const r = await api.addItem('', {
+    manual: true, title: $('#mTitle').value.trim(), category: $('#mCat').value, price: price === '' ? null : +price,
+    store: $('#mStore').value.trim(), url: $('#mUrl').value.trim(), notes: $('#mNotes').value, image: manualPhoto,
+  });
+  if (!r.ok) return toast(r.error || 'Création impossible', 'err');
+  haptic('success');
+  hero?.pop();
+  toast('Ajouté à ta wishlist');
+  db = await api.getDb();
+  switchView('wishlist');
+  render();
+  requestAnimationFrame(() => $(`.row[data-id="${r.item.id}"]`)?.classList.add('flash'));
 });
 
 // Achat

@@ -4,7 +4,7 @@ import { playGift } from './gift3d.js';
 
 const CATS = {
   vetements: ['Vêtements', '👕'], jeux: ['Jeux vidéo', '🎮'], tech: ['Tech', '💻'], maison: ['Maison', '🛋️'],
-  livres: ['Livres', '📚'], sport: ['Sport', '⚽'], parfums: ['Parfums', '🌸'], autre: ['Autre', '✨'],
+  livres: ['Livres', '📚'], sport: ['Sport', '⚽'], parfums: ['Parfums', '🌸'], cadeaux: ['Cartes cadeaux', '🎁'], autre: ['Autre', '✨'],
 };
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

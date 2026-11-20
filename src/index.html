@@ -19,6 +19,7 @@
         <input id="quickUrl" type="text" placeholder="Colle le lien d'un article (Zalando, Amazon, Fnac, Steam…)" aria-label="Lien de l'article" />
         <button type="button" class="btn-ghost small" id="pasteBtn" title="Coller depuis le presse-papiers">Coller</button>
         <button type="submit" class="btn-sun" id="addBtn">Ajouter</button>
+        <button type="button" class="btn-ghost small manual-btn" id="manualBtn" title="Créer un article à la main (carte cadeau, objet sans lien…)" aria-label="Créer un article à la main"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>À la main</span></button>
       </form>
       <div class="win-ctrls">
         <button class="wc" id="pinBtn" title="Garder au premier plan" aria-label="Garder au premier plan"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 17h14l-2-4V5h1V3H6v2h1v8z" /></svg></button>
@@ -266,6 +267,24 @@
       <label>Date d'achat<input type="date" id="buyDate" required /></label>
       <label>Boutique<input type="text" id="buyStore" /></label>
       <div class="dlg-btns"><button value="cancel" class="btn-ghost" formnovalidate>Annuler</button><button value="ok" class="btn-sun">Enregistrer l'achat</button></div>
+    </form>
+  </dialog>
+
+  <!-- Création manuelle (carte cadeau, objet sans lien…) -->
+  <dialog id="manualDlg" class="dlg">
+    <form method="dialog" id="manualForm">
+      <h3>Créer un article</h3>
+      <p class="muted small">Carte cadeau, expérience, objet sans boutique en ligne…</p>
+      <label>Nom<input id="mTitle" type="text" maxlength="140" placeholder="Carte cadeau Fnac" required /></label>
+      <div class="dlg-row">
+        <label>Prix ou montant (€)<input id="mPrice" type="number" step="0.01" min="0" inputmode="decimal" placeholder="50" /></label>
+        <label>Catégorie<select id="mCat"></select></label>
+      </div>
+      <label>Boutique / enseigne (facultatif)<input id="mStore" type="text" maxlength="60" placeholder="Fnac" /></label>
+      <label>Lien (facultatif)<input id="mUrl" type="url" inputmode="url" placeholder="https://…" /></label>
+      <label>Note (facultatif)<input id="mNotes" type="text" maxlength="200" placeholder="Montant libre, à offrir pour Noël…" /></label>
+      <div class="m-photo"><label class="file-btn btn-ghost small">Ajouter une photo<input type="file" id="mPhoto" accept="image/*" hidden /></label><img id="mPhotoPrev" alt="" hidden /></div>
+      <div class="dlg-btns"><button value="cancel" class="btn-ghost" formnovalidate>Annuler</button><button value="ok" class="btn-sun">Créer</button></div>
     </form>
   </dialog>
 
