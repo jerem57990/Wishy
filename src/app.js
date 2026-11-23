@@ -337,7 +337,8 @@ function renderListsBar() {
   const lists = db.lists || [];
   $('#listsBar').innerHTML = `<button class="lchip ${!ui.list ? 'active' : ''}" data-list="">Toute la wishlist</button>`
     + lists.map((l) => `<button class="lchip ${ui.list === l.id ? 'active' : ''}" data-list="${l.id}">${esc(l.name)}<small>${listItems(l).length}</small></button>`).join('')
-    + '<button class="lchip add" data-newlist>＋ Nouvelle liste</button>';
+    + '<button class="lchip add" data-newlist>＋ Nouvelle liste</button>'
+    + '<button class="lchip add create" data-manual>✎ Créer un article</button>';
 }
 function renderListHead(L, items) {
   const h = $('#listHead');
@@ -345,7 +346,7 @@ function renderListHead(L, items) {
   if (!L) return;
   const total = items.filter((i) => i.status === 'wish').reduce((s, i) => s + (bestPrice(i)?.price || 0), 0);
   h.innerHTML = `<div><h3>${esc(L.name)}</h3><p>${items.length} article${items.length > 1 ? 's' : ''} · ${eur(total)}${L.shareToken ? ' · <span class="shared">partagée</span>' : ''}</p></div>
-    <div class="acts"><button class="btn-sun small" data-lact="word">Exporter en Word</button><button class="btn-ghost small" data-lact="share">${L.shareToken ? 'Copier le lien' : 'Partager'}</button>${L.shareToken ? '<button class="btn-ghost small" data-lact="unshare">Ne plus partager</button>' : ''}<button class="btn-ghost small" data-lact="rename">Renommer</button><button class="btn-ghost small" data-lact="delete">Supprimer</button></div>`;
+    <div class="acts"><button class="btn-ink small" data-lact="manual">＋ Créer un article</button><button class="btn-sun small" data-lact="word">Exporter en Word</button><button class="btn-ghost small" data-lact="share">${L.shareToken ? 'Copier le lien' : 'Partager'}</button>${L.shareToken ? '<button class="btn-ghost small" data-lact="unshare">Ne plus partager</button>' : ''}<button class="btn-ghost small" data-lact="rename">Renommer</button><button class="btn-ghost small" data-lact="delete">Supprimer</button></div>`;
 }
 function renderSelBar() {
   const bar = $('#selBar');
@@ -1030,6 +1031,7 @@ $('#selectBtn').addEventListener('click', () => { ui.selecting = !ui.selecting; 
 $('#listsBar').addEventListener('click', async (e) => {
   const b = e.target.closest('.lchip');
   if (!b) return;
+  if ('manual' in b.dataset) { openManual(ui.list); return; }
   if ('newlist' in b.dataset) {
     const L = await newList(ui.selecting ? [...ui.sel] : []);
     if (L) { ui.list = L.id; ui.selecting = false; ui.sel.clear(); }
@@ -1040,6 +1042,7 @@ $('#listsBar').addEventListener('click', async (e) => {
 $('#listHead').addEventListener('click', async (e) => {
   const a = e.target.closest('[data-lact]')?.dataset.lact, L = currentList();
   if (!a || !L) return;
+  if (a === 'manual') openManual(L.id);
   if (a === 'word') doExport(listItems(L), L.name);
   if (a === 'share') doShare(L);
   if (a === 'unshare') { const { stopSharing } = await import('./share.js'); await stopSharing(L, { api, saveLists, db: () => db, toast }); render(); }
@@ -1215,16 +1218,18 @@ function photoToDataUrl(file) {
     r.readAsDataURL(file);
   });
 }
-let manualPhoto = null;
-function openManual() {
+let manualPhoto = null, manualList = null;
+function openManual(listId = null) {
+  manualList = listId && (db.lists || []).some((l) => l.id === listId) ? listId : null;
   $('#manualForm').reset();
   manualPhoto = null;
   $('#mPhotoPrev').hidden = true;
   $('#mCat').innerHTML = Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${k === 'cadeaux' ? 'selected' : ''}>${v.emoji} ${v.label}</option>`).join('');
+  $('#manualFor').textContent = manualList ? `Il sera ajouté à la liste « ${db.lists.find((l) => l.id === manualList).name} ».` : 'Carte cadeau, expérience, objet sans boutique en ligne…';
   $('#manualDlg').showModal();
   setTimeout(() => $('#mTitle').focus(), 50);
 }
-$('#manualBtn').addEventListener('click', openManual);
+$('#manualBtn').addEventListener('click', () => openManual(ui.list));
 $('#mPhoto').addEventListener('change', async (e) => {
   manualPhoto = await photoToDataUrl(e.target.files[0]);
   if (manualPhoto) { $('#mPhotoPrev').src = manualPhoto; $('#mPhotoPrev').hidden = false; }
@@ -1239,8 +1244,8 @@ $('#manualDlg').addEventListener('close', async () => {
   if (!r.ok) return toast(r.error || 'Création impossible', 'err');
   haptic('success');
   hero?.pop();
-  toast('Ajouté à ta wishlist');
   db = await api.getDb();
+  if (manualList) await addToList(manualList, [r.item.id]); else toast('Ajouté à ta wishlist');
   switchView('wishlist');
   render();
   requestAnimationFrame(() => $(`.row[data-id="${r.item.id}"]`)?.classList.add('flash'));

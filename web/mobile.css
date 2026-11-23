@@ -40,8 +40,7 @@ body.web input, body.web select, body.web textarea { font-size: 16px; }
   body.web .quick-add { gap: 4px; }
   body.web #pasteBtn { padding: 6px 10px; }
   body.web #pasteBtn { display: inline-flex; }
-  body.web .manual-btn span { display: none; }
-  body.web .manual-btn { padding: 6px 8px; }
+  body.web .manual-btn { display: none; }
   body.web .quick-add .qa-ico { display: none; }
 
   /* barre d'onglets en bas */
