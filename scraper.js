@@ -162,8 +162,15 @@ function extract(html, url) {
     if (st) res.listPrice = res.listPrice || parsePrice(st[1]);
   }
   if (!res.price && /amazon\./i.test(url)) {
-    const m = html.match(/"priceAmount"\s*:\s*([\d.]+)/) || html.match(/class=["']a-offscreen["'][^>]*>\s*(\d{1,5}(?:[.,]\d{2})?)\s*(?:€|&euro;)/i);
+    // Amazon affiche parfois les prix dans la devise du visiteur (serveur à l'étranger) : on lit la devise
+    const pa = html.match(/"priceAmount"\s*:\s*([\d.]+)\s*,\s*"currencySymbol"\s*:\s*"([^"]*)"/);
+    const m = pa || html.match(/"priceAmount"\s*:\s*([\d.]+)/) || html.match(/class=["']a-offscreen["'][^>]*>\s*(\d{1,5}(?:[.,]\d{2})?)\s*(?:€|&euro;)/i);
     if (m) res.price = parsePrice(m[1]);
+    if (pa && !/€|EUR/i.test(pa[2])) {
+      const SYM = { '₹': 'INR', 'INR': 'INR', '$': 'USD', 'US$': 'USD', 'USD': 'USD', '£': 'GBP', 'GBP': 'GBP', 'CHF': 'CHF', 'zł': 'PLN', 'PLN': 'PLN', 'kr': 'SEK', 'SEK': 'SEK', '¥': 'JPY', 'JPY': 'JPY', 'CA$': 'CAD', 'CAD': 'CAD', 'A$': 'AUD', 'AUD': 'AUD' };
+      const code = SYM[pa[2].trim()];
+      if (code) { res.currency = code; res.listPrice = null; } else { res.price = null; res.listPrice = null; }
+    }
     const t = html.match(/id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i);
     if (t) res.title = decode(t[1]);
     const im = html.match(/"hiRes"\s*:\s*"([^"]+)"/) || html.match(/id=["']landingImage["'][^>]+src=["']([^"']+)["']/i);
@@ -177,7 +184,7 @@ function extract(html, url) {
     if (o) res.listPrice = res.listPrice || parsePrice(o[1]);
   }
   // Heuristique de dernier recours : premier montant en € "visible" proche du mot prix
-  if (!res.price) {
+  if (!res.price && !/amazon\./i.test(url)) {
     const m = html.match(/(?:prix|price)[^<]{0,80}?(\d{1,5}(?:[.,]\d{2})?)\s?(?:€|&euro;|EUR)/i);
     if (m) res.price = parsePrice(m[1]);
   }
@@ -228,7 +235,7 @@ function extractOptions(html) {
 }
 
 // ---------- Conversion de devise (tout est affiché en euros) ----------
-const FALLBACK_RATES = { USD: 0.86, GBP: 1.15, CHF: 1.07, CAD: 0.62, AUD: 0.57, JPY: 0.0058, CNY: 0.12, HKD: 0.11, SEK: 0.09, DKK: 0.134, PLN: 0.235 };
+const FALLBACK_RATES = { INR: 0.0093, USD: 0.86, GBP: 1.15, CHF: 1.07, CAD: 0.62, AUD: 0.57, JPY: 0.0058, CNY: 0.12, HKD: 0.11, SEK: 0.09, DKK: 0.134, PLN: 0.235 };
 let rateCache = { at: 0, rates: null };
 async function toEurRate(cur) {
   cur = String(cur || 'EUR').toUpperCase();
@@ -332,6 +339,8 @@ async function fetchProduct(url) {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.6',
         'Cache-Control': 'no-cache',
+        // Amazon : forcer l'affichage en euros, quelle que soit la région du serveur
+        ...(/amazon\./i.test(url) ? { Cookie: 'i18n-prefs=EUR; lc-acbfr=fr_FR' } : {}),
       },
     });
     const html = await r.text();
